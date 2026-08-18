@@ -11,7 +11,7 @@
  */
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import type { AppState, Chat, Project } from '@shared/types';
+import { DEFAULT_SETTINGS, type AppState, type Chat, type Project } from '@shared/types';
 import { stateDir, statePath } from './platform.js';
 
 const EMPTY: AppState = {
@@ -20,6 +20,7 @@ const EMPTY: AppState = {
   projects: [],
   chats: [],
   identities: [],
+  settings: { ...DEFAULT_SETTINGS },
   layout: {}
 };
 
@@ -75,6 +76,7 @@ export function update<T>(fn: (state: AppState) => T): T {
     projects: [...state.projects],
     chats: [...state.chats],
     identities: [...(state.identities ?? [])],
+    settings: { ...DEFAULT_SETTINGS, ...(state.settings ?? {}) },
     layout: { ...state.layout }
   };
   const result = fn(next);

@@ -47,3 +47,26 @@ test('the collapsed rail is a sibling of Group, not a child', () => {
     'the collapsed ProjectSidebar must sit outside Group so it is laid out by plain flex'
   );
 });
+
+test('settings replaces the workspace rather than sitting beside it', () => {
+  // The bug: only the sidebar was guarded, so `Group` kept its flex space while settings was open
+  // and the chat/changes panels were squeezed into a sliver at the right edge. The two must be
+  // branches of one ternary, never siblings.
+  const branch = /\{settingsOpen \? \(([\s\S]*?)\) : \(/.exec(shell);
+  assert.ok(branch?.[1], 'expected settingsOpen to choose between two branches');
+  assert.match(branch[1], /<SettingsPage/, 'the settings branch should render the settings page');
+  assert.ok(
+    !branch[1].includes('<Group'),
+    'the workspace must not render inside the settings branch'
+  );
+});
+
+test('the settings page is told to fill its container', () => {
+  const page = readFileSync(
+    fileURLToPath(new URL('../client/features/settings/SettingsPage.tsx', import.meta.url)),
+    'utf8'
+  );
+  // Without flex-1 it sizes to content and leaves the rest of the row empty.
+  const root = /<div className="([^"]*)">/.exec(page)?.[1] ?? '';
+  assert.match(root, /flex-1/, 'the settings root needs flex-1 to fill the shell');
+});

@@ -11,6 +11,8 @@ import { CommandPalette } from '@/features/command-palette/CommandPalette';
 import { AddProjectDialog } from '@/features/projects/AddProjectDialog';
 import { ProjectSidebar } from '@/features/projects/ProjectSidebar';
 import { useProjects } from '@/features/projects/useProjects';
+import { SettingsPage } from '@/features/settings/SettingsPage';
+import { useSettings } from '@/features/settings/useSettings';
 import { useHotkey } from '@/hooks/useHotkey';
 import { detailOf, messageOf } from '@/lib/http';
 import { useWorkspace } from '@/store/workspace';
@@ -33,6 +35,9 @@ export function AppShell() {
   const toggleSidebar = useWorkspace((s) => s.toggleSidebar);
   const toggleChanges = useWorkspace((s) => s.toggleChanges);
   const setPaletteOpen = useWorkspace((s) => s.setPaletteOpen);
+  const settingsOpen = useWorkspace((s) => s.settingsOpen);
+  const setSettingsOpen = useWorkspace((s) => s.setSettingsOpen);
+  const { settings, loaded: settingsLoaded, update: updateSettings, reset: resetSettings } = useSettings();
 
   const project = projects.find((p) => p.id === selectedProjectId) ?? null;
   const chat = chats.find((c) => c.id === selectedChatId) ?? null;
@@ -103,6 +108,24 @@ export function AppShell() {
     };
   }, [selectedProjectId, loadChats, createChat, selectChat]);
 
+  // Remember which project is open so the next launch can return to it.
+  useEffect(() => {
+    if (!settingsLoaded || !selectedProjectId) return;
+    if (settings.lastProjectId === selectedProjectId) return;
+    void updateSettings({ lastProjectId: selectedProjectId });
+  }, [selectedProjectId, settingsLoaded, settings.lastProjectId, updateSettings]);
+
+  // Restore it exactly once, and only if that project still exists — a remembered id for a project
+  // since removed must not leave the app pointing at nothing.
+  const restored = useRef(false);
+  useEffect(() => {
+    if (restored.current || !settingsLoaded || loading) return;
+    restored.current = true;
+    if (!settings.restoreLastProject || selectedProjectId) return;
+    const target = settings.lastProjectId;
+    if (target && projects.some((p) => p.id === target)) selectProject(target);
+  }, [settingsLoaded, loading, projects, settings.restoreLastProject, settings.lastProjectId, selectedProjectId, selectProject]);
+
   const onRunStateChange = useCallback(
     (running: boolean) => {
       if (!selectedChatId) return;
@@ -117,6 +140,9 @@ export function AppShell() {
   );
 
   useHotkey('k', () => setPaletteOpen(true), { inFields: true });
+  useHotkey(',', () => setSettingsOpen(true), { inFields: true });
+  // Esc leaves settings. No modifier, and it must work while a field has focus.
+  useHotkey('Escape', () => setSettingsOpen(false), { ctrl: false, inFields: true });
   useHotkey('b', toggleSidebar);
   useHotkey('g', toggleChanges, { shift: true });
 
@@ -135,6 +161,15 @@ export function AppShell() {
         `hidden` panel kept its width and left a dead gap where the sidebar used to be.
       */}
       <div className="flex min-h-0 flex-1">
+        {settingsOpen ? (
+          <SettingsPage
+            settings={settings}
+            onUpdate={(patch) => void updateSettings(patch)}
+            onReset={() => void resetSettings()}
+            onClose={() => setSettingsOpen(false)}
+          />
+        ) : (
+          <>
         {sidebarCollapsed ? (
           <ProjectSidebar
             projects={projects}
@@ -187,11 +222,13 @@ export function AppShell() {
             <>
               <ResizeHandle />
               <Panel id="changes" defaultSize="26" minSize="18" maxSize="45">
-                <ChangesPanel project={project} revision={gitRevision} />
+                <ChangesPanel project={project} revision={gitRevision} confirmLevel={settings.confirmLevel} />
               </Panel>
             </>
           )}
         </Group>
+          </>
+        )}
       </div>
 
       <StatusBar

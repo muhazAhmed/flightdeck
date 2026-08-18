@@ -693,3 +693,103 @@ carries a class rather than falling back to browser styling.
 Two incidental fixes this needed: `test/` was missing from `tsconfig.json`'s `include`, so esbuild
 compiled JSX with the classic runtime (`React is not defined`) and the test files were never
 type-checked at all. Both are fixed, which means the whole suite is now covered by `tsc` too.
+
+---
+
+### 2026-08-18 · Settings: themes, accents, and what a preference is allowed to turn off
+
+A real settings page, its own left nav, with every planned section listed and the unbuilt ones
+visibly disabled — same rule as the placeholder gear before it: showing where a thing will live is
+honest, a button to an empty page is not.
+
+**Preferences live on the server**, in `state.json` beside projects. Browser storage would mean a
+setting that silently differs between a reload and a second tab, which is worse than no setting.
+Every field is validated against its allowed values, because an unknown accent name would reach the
+DOM as a `data-accent` attribute matching no CSS rule — leaving the app on the default colour with
+nothing to explain why.
+
+**Appearance is applied by attributes on `<html>`**, not by re-rendering: `data-theme`,
+`data-accent`, `data-density`, plus `color-scheme` so the browser styles form controls and
+scrollbars to match. A colour change is one attribute write and a repaint; no component knows the
+theme changed.
+
+**Every accent is a measured pair, not a swatch.** A fill has to carry white text (≥4.5:1) and a
+bright variant has to stand off a panel (≥4.5:1) — one hex cannot do both, as the earlier
+unreadable-button bug proved. All seven were computed before being offered. Two consequences worth
+recording: green's hover goes *darker* rather than lighter, because every lighter green drops white
+below 4.5:1; and each accent needs a light-theme companion, since a bright mark on white is
+invisible. Green, amber and red are offered with a note that they share a hue with diff additions,
+warnings and errors respectively — the user's call, made with the trade-off visible.
+
+**Density touches the type scale only.** Spacing lives in Tailwind utility classes across dozens of
+components; driving it from a variable would mean rewriting all of them for one preference. The
+setting says so rather than implying more than it does.
+
+**One preference deliberately cannot be turned off.** "Confirm source-control actions" offers *every
+action* or *only destructive*, and discard, force-delete and overwriting a typed commit message
+always ask regardless of the setting. A switch that removes the guard on unrecoverable operations is
+not a preference, it is a trap.
+
+**A test keeps the CSS and the UI in sync**: every offered accent must have a rule, every rule must
+be offered, each must redefine the whole variable set (a rule that sets the fill but not
+`--accent-bright` leaves icons the previous colour), the light theme must redefine every surface, and
+density must not pretend to change spacing.
+
+*Method note:* my first version of that test built its regex by interpolating into a template
+literal, which the tooling mangled into a pattern matching nothing — a test that matches nothing
+passes for the wrong reason. Rewritten as a plain scan.
+
+---
+
+### 2026-08-18 · Appearance and behaviour are one General section
+
+Splitting them put two clicks between a user and one page of preferences. Both answer the same
+question — how the app works for me — so they are two cards under General, and the nav lists only
+sections that are genuinely different concerns (git defaults, agent defaults, terminal, shortcuts,
+privacy), all still disabled.
+
+Added a render test for the page while making the change: it goes through `react-dom/server` and
+asserts Behaviour appears exactly once (a second occurrence would mean it is a nav item again), that
+the unbuilt sections still render disabled, that every swatch carries an `aria-label`, that the
+selected accent reports `aria-pressed`, and that the startup toggle exposes `aria-checked`.
+
+That test immediately caught something typechecking cannot: `IconButton` uses a Radix tooltip, which
+throws outside a `TooltipProvider`. The app has one at its root so nothing was broken, but any future
+component rendered outside that provider will fail the same way — worth knowing.
+
+---
+
+### 2026-08-18 · Settings is a view, not a neighbour
+
+The settings page rendered *beside* the workspace instead of replacing it: a sliver of the Changes
+panel stayed visible at the right edge, squeezed to a few pixels. Cause: only the sidebar was
+guarded by `settingsOpen`, so `Group` still claimed its share of the row.
+
+Now the two are branches of one ternary — settings or workspace, never both — and the settings root
+carries `flex-1` so it fills what it is given rather than sizing to content.
+
+Pinned by extending the layout test, and I checked the new assertion actually fails against the old
+shape rather than trusting that it would: the buggy source (settings and `Group` as siblings) does not
+match the exclusive-ternary pattern the test requires.
+
+That is the second layout bug in this file from the same root cause — assuming a conditional guards
+more than it does. Both were invisible to typechecking and to every rendering-free test, which is
+why the shell now has structural assertions rather than none.
+
+---
+
+### 2026-08-18 · The switch knob needed an anchor, not a bigger number
+
+The toggle's knob hung off the right edge of its track. The knob was `absolute top-0.5` with **no
+`left`**, so its horizontal base was its *static position* — and inside a `<button>`, which centres
+its content, that base is the middle of the track. The translate then moved it 22px right of centre
+instead of 22px from the left edge.
+
+Fixed by anchoring (`left-0.5`) and moving it by exactly its own travel: track 44 − knob 20 − 2 − 2
+= 20px, which is `translate-x-5`. The geometry is now derivable from the classes instead of being a
+magic pixel value that happened to look right in one place.
+
+Two tests pin it: the knob must carry a `left` anchor, and the travel must be a scale value rather
+than an arbitrary `translate-x-[…]` — an arbitrary number is the shape of a value tuned until it
+looked correct, which is what produced the bug.
+

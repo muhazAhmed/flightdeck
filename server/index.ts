@@ -10,6 +10,7 @@ import { identityRoutes } from './routes/identity.js';
 import { projectRoutes } from './routes/projects.js';
 import { remoteRoutes } from './routes/remote.js';
 import { sessionRoutes } from './routes/sessions.js';
+import { settingsRoutes } from './routes/settings.js';
 import { userRoutes } from './routes/user.js';
 
 const PORT = Number(process.env.PORT ?? 5174);
@@ -31,6 +32,7 @@ await app.register(sessionRoutes);
 await app.register(userRoutes);
 await app.register(commitMessageRoutes);
 await app.register(attachmentRoutes);
+await app.register(settingsRoutes);
 
 // In development Vite serves the client and proxies here. In production Fastify serves
 // the built assets too, so running Flight Deck is one command and one origin.

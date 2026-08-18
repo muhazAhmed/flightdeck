@@ -1,0 +1,142 @@
+/*
+ * Theme and accent overrides, layered on top of tokens.css.
+ *
+ * tokens.css holds the dark defaults. Everything here overrides a subset of those variables based
+ * on attributes the client writes onto <html>:
+ *
+ *   data-theme="light"      the light surface stack
+ *   data-accent="violet"    accent fill / hover / bright / subtle
+ *   data-density="compact"  type scale
+ *
+ * Attributes rather than classes because they are single-valued: an element cannot accidentally
+ * carry two themes at once, and reading the current value back is one `getAttribute`.
+ *
+ * Every pair below was measured, not chosen by eye. Fills carry white text at 4.5:1 or better;
+ * `--accent-bright` clears 4.5:1 against a panel in the theme it belongs to.
+ */
+
+/* ── Light ──────────────────────────────────────────────────────────────────────────────────── */
+
+:root[data-theme='light'] {
+  /* Panels are white and the app background is the tinted one — the reverse of the dark stack,
+   * where panels sit above the background. Keeps cards reading as raised in both themes. */
+  --bg-base: #f7f8fa;
+  --surface-1: #ffffff;
+  --surface-2: #f1f3f6;
+  --surface-3: #e6e9ee;
+
+  --border-subtle: #e6e9ee;
+  --border: #d6dae1;
+
+  --text-primary: #101319;
+  --text-secondary: #4a5262;
+  --text-muted: #6f7889;
+
+  /* The accent fill is unchanged: a colour that carries white text works on either background, and
+   * keeping it identical means a button looks the same in both themes. `--accent-bright` has to
+   * come down, though — a light mark on white is invisible. */
+  --accent-bright: #0e7490;
+  --accent-subtle: rgb(14 116 144 / 0.1);
+
+  --success: #15803d;
+  --danger: #b91c1c;
+  --warn: #a16207;
+  --info: #6d28d9;
+
+  --diff-add-bg: rgb(21 128 61 / 0.1);
+  --diff-add-gutter: #15803d;
+  --diff-del-bg: rgb(185 28 28 / 0.1);
+  --diff-del-gutter: #b91c1c;
+
+  --shadow-popover: 0 12px 32px rgb(16 19 25 / 0.16);
+}
+
+/* ── Accents ────────────────────────────────────────────────────────────────────────────────── */
+
+:root[data-accent='violet'] {
+  --accent: #6d28d9;
+  --accent-hover: #7c3aed;
+  --accent-bright: #a78bfa;
+  --accent-subtle: rgb(167 139 250 / 0.14);
+}
+:root[data-accent='violet'][data-theme='light'] {
+  --accent-bright: #6d28d9;
+  --accent-subtle: rgb(109 40 217 / 0.1);
+}
+
+:root[data-accent='blue'] {
+  --accent: #1d4ed8;
+  --accent-hover: #2563eb;
+  --accent-bright: #60a5fa;
+  --accent-subtle: rgb(96 165 250 / 0.14);
+}
+:root[data-accent='blue'][data-theme='light'] {
+  --accent-bright: #1d4ed8;
+  --accent-subtle: rgb(29 78 216 / 0.1);
+}
+
+:root[data-accent='green'] {
+  --accent: #15803d;
+  /* Hover goes DARKER here: the lighter greens drop white text below 4.5:1, and a readable label
+   * matters more than the convention of brightening on hover. */
+  --accent-hover: #166534;
+  --accent-bright: #4ade80;
+  --accent-subtle: rgb(74 222 128 / 0.14);
+}
+:root[data-accent='green'][data-theme='light'] {
+  --accent-bright: #15803d;
+  --accent-subtle: rgb(21 128 61 / 0.1);
+}
+
+:root[data-accent='amber'] {
+  --accent: #a16207;
+  --accent-hover: #b45309;
+  --accent-bright: #fbbf24;
+  --accent-subtle: rgb(251 191 36 / 0.14);
+}
+:root[data-accent='amber'][data-theme='light'] {
+  --accent-bright: #a16207;
+  --accent-subtle: rgb(161 98 7 / 0.1);
+}
+
+:root[data-accent='pink'] {
+  --accent: #be185d;
+  --accent-hover: #db2777;
+  --accent-bright: #f9a8d4;
+  --accent-subtle: rgb(249 168 212 / 0.14);
+}
+:root[data-accent='pink'][data-theme='light'] {
+  --accent-bright: #be185d;
+  --accent-subtle: rgb(190 24 93 / 0.1);
+}
+
+/* Red is offered because people ask for it, but it is the one accent that collides with meaning:
+ * `--danger` is red, so a red accent makes "interactive" and "destructive" the same colour. The
+ * settings UI says so next to the swatch. */
+:root[data-accent='red'] {
+  --accent: #b91c1c;
+  --accent-hover: #dc2626;
+  --accent-bright: #f87171;
+  --accent-subtle: rgb(248 113 113 / 0.14);
+}
+:root[data-accent='red'][data-theme='light'] {
+  --accent-bright: #b91c1c;
+  --accent-subtle: rgb(185 28 28 / 0.1);
+}
+
+/* ── Density ────────────────────────────────────────────────────────────────────────────────── */
+
+/*
+ * Density adjusts the type scale only, not the spacing scale. Spacing lives in Tailwind utility
+ * classes across dozens of components; driving it from a variable would mean rewriting all of them
+ * and is not worth it for one preference. Smaller text does most of the perceived work anyway.
+ */
+:root[data-density='compact'] {
+  --ui-font-size: 13px;
+  --ui-line-height: 20px;
+}
+
+:root[data-density='comfortable'] {
+  --ui-font-size: 14px;
+  --ui-line-height: 22px;
+}

@@ -13,7 +13,7 @@ import {
   Sparkles,
   Undo2
 } from 'lucide-react';
-import type { GitFile, Project } from '@shared/types';
+import type { ConfirmLevel, GitFile, Project } from '@shared/types';
 import { Button } from '@/shared/ui/Button';
 import { ConfirmDialog, type ConfirmRequest } from '@/shared/ui/ConfirmDialog';
 import { EmptyState } from '@/shared/ui/EmptyState';
@@ -32,6 +32,8 @@ interface ChangesPanelProps {
   project: Project | null;
   /** Bumped when a run finishes, so files the agent touched appear without a manual refresh. */
   revision: number;
+  /** `all` gates every action behind a dialog; `destructive` only the ones with no undo. */
+  confirmLevel: ConfirmLevel;
 }
 
 type Tab = 'unstaged' | 'staged';
@@ -47,7 +49,7 @@ const STATUS_COLOR: Record<string, string> = {
   U: 'text-danger'
 };
 
-export function ChangesPanel({ project, revision }: ChangesPanelProps) {
+export function ChangesPanel({ project, revision, confirmLevel }: ChangesPanelProps) {
   const git = useGitPanel(project?.id ?? null, revision);
   const [message, setMessage] = useState('');
   const [confirm, setConfirm] = useState<ConfirmRequest | null>(null);
@@ -73,8 +75,23 @@ export function ChangesPanel({ project, revision }: ChangesPanelProps) {
 
   const plural = (files: string[]) => `${files.length} file${files.length === 1 ? '' : 's'}`;
 
+  /**
+   * Ask, or just do it.
+   *
+   * Discard and force-delete are irreversible and always ask, whatever the preference — a setting
+   * that can turn off the guard on unrecoverable actions is not a preference, it is a trap. The
+   * choice only governs the reversible ones: staging, unstaging, stashing, pulling, pushing.
+   */
+  function gate(request: ConfirmRequest, irreversible = false) {
+    if (!irreversible && confirmLevel === 'destructive') {
+      request.onConfirm();
+      return;
+    }
+    setConfirm(request);
+  }
+
   function askStage(files: string[]) {
-    setConfirm({
+    gate({
       title: files.length === 1 ? 'Stage this file?' : `Stage ${plural(files)}?`,
       description: 'Adds the changes to the index. Reversible — you can unstage afterwards.',
       files,
@@ -84,7 +101,7 @@ export function ChangesPanel({ project, revision }: ChangesPanelProps) {
   }
 
   function askUnstage(files: string[]) {
-    setConfirm({
+    gate({
       title: files.length === 1 ? 'Unstage this file?' : `Unstage ${plural(files)}?`,
       description: 'Removes them from the index. Your edits in the working tree are untouched.',
       files,
@@ -94,6 +111,7 @@ export function ChangesPanel({ project, revision }: ChangesPanelProps) {
   }
 
   function askDiscard(files: string[]) {
+    // Always asks: these edits exist nowhere else.
     setConfirm({
       title: files.length === 1 ? 'Discard this file?' : `Discard ${plural(files)}?`,
       description: 'This cannot be undone — these edits are not in git yet.',
@@ -105,7 +123,7 @@ export function ChangesPanel({ project, revision }: ChangesPanelProps) {
   }
 
   function askStash() {
-    setConfirm({
+    gate({
       title: 'Stash all changes?',
       description:
         'Saves everything, including untracked files, and leaves a clean working tree. Recoverable with pop.',
@@ -116,7 +134,7 @@ export function ChangesPanel({ project, revision }: ChangesPanelProps) {
   }
 
   function askStashPop(index: number, subject: string) {
-    setConfirm({
+    gate({
       title: 'Restore this stash?',
       description: 'Re-applies the stashed changes to the working tree and drops the stash entry.',
       files: [subject],
@@ -126,7 +144,7 @@ export function ChangesPanel({ project, revision }: ChangesPanelProps) {
   }
 
   function askPull() {
-    setConfirm({
+    gate({
       title: `Pull ${status?.branch ?? 'this branch'}?`,
       description:
         'Fast-forward only, so nothing is merged behind your back. Refused if the working tree is dirty.',
@@ -138,7 +156,7 @@ export function ChangesPanel({ project, revision }: ChangesPanelProps) {
 
   function askPush() {
     const ahead = status?.ahead ?? 0;
-    setConfirm({
+    gate({
       title: `Push ${status?.branch ?? 'this branch'}?`,
       description: status?.tracking
         ? `Sends ${ahead} local commit${ahead === 1 ? '' : 's'} to ${status.tracking}. Never forced.`
@@ -184,6 +202,7 @@ export function ChangesPanel({ project, revision }: ChangesPanelProps) {
       void draftMessage();
       return;
     }
+    // Always asks: it would overwrite words you typed.
     setConfirm({
       title: 'Replace your message?',
       description: 'Drafting from the staged diff will overwrite what you have typed.',

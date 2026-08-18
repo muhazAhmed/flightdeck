@@ -87,7 +87,12 @@ What the tool does, grouped by area, each tagged with the phase it lands in.
 | Empty / loading / disconnected states | P1 | Skeletons, not full-page spinners. Server-down is a persistent banner with retry. |
 | Concurrent-chat warning | P1 | Two chats in one project share one working tree — the UI says so instead of pretending otherwise. |
 | Elapsed time on long tool cards | P2 | A slow `npm ci` should read as working, not hung. |
-| Light theme | Later | Tokens make it a swap, not a refactor. |
+| Settings page | **done** | Own left nav with every planned section listed; unbuilt ones visibly disabled. General and Behaviour are real. |
+| Light theme | **done** | A full light surface stack, measured, plus `color-scheme` so form controls and scrollbars follow. |
+| Accent colours | **done** | Seven, each a contrast-checked fill/bright pair with a light-theme companion. Green, amber and red are labelled where they collide with diff or status meaning. |
+| Interface density | **done** | Comfortable / compact, driven by the type scale. |
+| Reopen last project | **done** | Restores the project you had open, once, and only if it still exists. |
+| Confirmation level | **done** | Every action, or only the irreversible ones. Discard and force-delete always ask regardless. |
 | Command palette actions (not just navigation) | Later | "commit", "stash", "new chat" from `Ctrl+K`. |
 
 ## Explicitly not in this tool

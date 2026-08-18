@@ -53,6 +53,7 @@ export function ProjectSidebar({
   const selectProject = useWorkspace((s) => s.selectProject);
   const selectChat = useWorkspace((s) => s.selectChat);
   const setPaletteOpen = useWorkspace((s) => s.setPaletteOpen);
+  const setSettingsOpen = useWorkspace((s) => s.setSettingsOpen);
 
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [query, setQuery] = useState('');
@@ -99,6 +100,12 @@ export function ProjectSidebar({
           );
         })}
         <IconButton label="Add project" className="mt-1 size-9" icon={<Plus size={16} />} onClick={onAddProject} />
+        <IconButton
+          label="Settings (Ctrl+,)"
+          className="mt-auto size-9"
+          icon={<Settings size={16} />}
+          onClick={() => setSettingsOpen(true)}
+        />
       </nav>
     );
   }
@@ -257,7 +264,7 @@ export function ProjectSidebar({
         )}
       </div>
 
-      <SidebarFooter />
+      <SidebarFooter onOpenSettings={() => setSettingsOpen(true)} />
     </nav>
   );
 }
@@ -313,7 +320,7 @@ function ChatRow({
  * The settings button is deliberately inert for now: a visible, disabled affordance is honest
  * about what exists, where a button that opens an empty page is not.
  */
-function SidebarFooter() {
+function SidebarFooter({ onOpenSettings }: { onOpenSettings: () => void }) {
   const [user, setUser] = useState<UserInfo | null>(null);
 
   useEffect(() => {
@@ -339,7 +346,7 @@ function SidebarFooter() {
         <span className="block truncate text-[13px]">{user?.name ?? 'No git identity'}</span>
         <span className="block truncate text-[11.5px] text-text-muted">{user?.email ?? 'set user.email in git'}</span>
       </span>
-      <IconButton label="Settings — not built yet" icon={<Settings size={14} />} disabled />
+      <IconButton label="Settings (Ctrl+,)" icon={<Settings size={14} />} onClick={onOpenSettings} />
     </footer>
   );
 }

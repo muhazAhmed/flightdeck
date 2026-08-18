@@ -103,6 +103,36 @@ export interface DiscoveredSession {
   active: boolean;
 }
 
+export type ThemeName = 'dark' | 'light';
+export type AccentName = 'cyan' | 'violet' | 'blue' | 'green' | 'amber' | 'pink' | 'red';
+export type Density = 'comfortable' | 'compact';
+/** `all` confirms every source-control action; `destructive` only the ones with no undo. */
+export type ConfirmLevel = 'all' | 'destructive';
+
+/**
+ * User preferences. Persisted server-side in the same state file as projects, so they survive a
+ * reload and are shared by every browser tab pointed at this server.
+ */
+export interface Settings {
+  theme: ThemeName;
+  accent: AccentName;
+  density: Density;
+  confirmLevel: ConfirmLevel;
+  /** Reopen the project that was selected when the app was last closed. */
+  restoreLastProject: boolean;
+  /** Set by the client as projects are selected; the seed for `restoreLastProject`. */
+  lastProjectId: string | null;
+}
+
+export const DEFAULT_SETTINGS: Settings = {
+  theme: 'dark',
+  accent: 'cyan',
+  density: 'comfortable',
+  confirmLevel: 'all',
+  restoreLastProject: true,
+  lastProjectId: null
+};
+
 export interface AppState {
   version: 1;
   /** Where the add-project picker reopens. Null until the user has browsed once — there
@@ -113,6 +143,8 @@ export interface AppState {
   /** Identities offered in the switcher. Never applied automatically — switching is always
    *  an explicit act, because it rewrites who authors the next commit. */
   identities: SavedIdentity[];
+  /** Absent in a state file written before settings existed; defaults fill in. */
+  settings?: Settings;
   /** Persisted panel widths, keyed by panel id. */
   layout: Record<string, number>;
 }

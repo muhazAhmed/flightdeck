@@ -13,6 +13,7 @@
 @import '@fontsource-variable/jetbrains-mono/wght.css';
 
 @import './tokens.css';
+@import './themes.css';
 
 /* Expose the tokens to Tailwind's utility generator so `bg-surface-1` and friends work
  * without a JS config file (Tailwind v4 is CSS-first). */
@@ -50,11 +51,10 @@
     background: var(--bg-base);
     color: var(--text-primary);
     font-family: var(--font-ui);
-    /* 14/22: Geist is a touch wider per character than Ubuntu at the same nominal size, so it
-     * needs slightly less of it — but the generous leading stays, because that is what makes a
-     * wall of streamed text readable for hours. */
-    font-size: 14px;
-    line-height: 22px;
+    /* Driven by [data-density] so the preference is one attribute, not a re-render. The generous
+     * leading is what makes a wall of streamed text readable for hours. */
+    font-size: var(--ui-font-size);
+    line-height: var(--ui-line-height);
     /* A hair tighter. Geist sets fractionally loose at UI sizes; this closes words up without
      * touching the glyphs themselves. */
     letter-spacing: -0.003em;
