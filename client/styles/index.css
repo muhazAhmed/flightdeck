@@ -1,0 +1,106 @@
+@import 'tailwindcss';
+
+/* Self-hosted from npm rather than fetched from Google: no CDN request, no reliance on what
+ * happens to be installed, and the app renders correctly with no network at all — a font
+ * request that hangs would otherwise block first paint on a local tool.
+ *
+ * Ubuntu is not a variable font, so weights are separate files. Only the three the UI uses
+ * are pulled: 300 is too light on `--bg-base`, and italics are never used here. Mono keeps
+ * its variable build. */
+@import '@fontsource/ubuntu/latin-400.css';
+@import '@fontsource/ubuntu/latin-500.css';
+@import '@fontsource/ubuntu/latin-700.css';
+@import '@fontsource-variable/jetbrains-mono/wght.css';
+
+@import './tokens.css';
+
+/* Expose the tokens to Tailwind's utility generator so `bg-surface-1` and friends work
+ * without a JS config file (Tailwind v4 is CSS-first). */
+@theme inline {
+  --color-bg-base: var(--bg-base);
+  --color-surface-1: var(--surface-1);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-border-subtle: var(--border-subtle);
+  --color-border-default: var(--border);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-bright: var(--accent-bright);
+  --color-accent-fg: var(--accent-fg);
+  --color-success: var(--success);
+  --color-danger: var(--danger);
+  --color-warn: var(--warn);
+  --color-info: var(--info);
+  --font-sans: var(--font-ui);
+  --font-mono: var(--font-mono);
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    margin: 0;
+    background: var(--bg-base);
+    color: var(--text-primary);
+    font-family: var(--font-ui);
+    /* 14/21 rather than the 13.5/20 this started at: Ubuntu needs the extra size to hold
+     * its shape, and the extra leading is what makes a wall of streamed text readable for
+     * hours. */
+    font-size: 14px;
+    line-height: 21px;
+    /* Zero tracking: Ubuntu is already optically wide, and negative tracking closes its
+     * apertures and makes it muddier at this size — the opposite of what helps. */
+    letter-spacing: 0;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Ubuntu ships no disambiguation variants, so nothing to opt into here. Anywhere `1` / `l`
+   * / `I` must be told apart — file paths, branch names, hashes, diff content — is rendered
+   * in JetBrains Mono rather than the UI face, which is the more reliable fix anyway. */
+
+  code,
+  pre,
+  kbd,
+  .font-mono {
+    font-variant-ligatures: none;
+  }
+
+  /* Focus must always be visible; never remove the ring without replacing it. */
+  :focus-visible {
+    outline: 2px solid var(--accent-bright);
+    outline-offset: 1px;
+  }
+
+  ::selection {
+    background: var(--accent-subtle);
+  }
+
+  /* Columns of numbers must not jitter as they update. */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Scrollbars: visible enough to grab, quiet enough to ignore. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
