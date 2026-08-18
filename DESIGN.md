@@ -30,27 +30,46 @@ rather than a refactor. Define once on `:root`; Tailwind v4 picks them up via `@
 
 ### Surfaces and text
 
-| Token | Value | Use |
-|---|---|---|
-| `--bg-base` | `#0A0A0B` | app background, behind everything |
-| `--surface-1` | `#101012` | panels (sidebar, chat, changes) |
-| `--surface-2` | `#17171A` | cards, tool cards, inputs |
-| `--surface-3` | `#1F1F23` | hover, raised menus, popovers |
-| `--border-subtle` | `#232327` | panel dividers, card edges |
-| `--border` | `#2E2E34` | input borders, resize handles |
-| `--text-primary` | `#EDEDEF` | body, headings |
-| `--text-secondary` | `#A1A1AA` | labels, metadata, timestamps |
-| `--text-muted` | `#6E6E77` | placeholders, disabled |
+| Token | Value | Use | On panel |
+|---|---|---|---|
+| `--bg-base` | `#101319` | app background, behind everything | — |
+| `--surface-1` | `#161A22` | panels (sidebar, chat, changes) | — |
+| `--surface-2` | `#1C212B` | cards, tool cards, inputs | — |
+| `--surface-3` | `#242A36` | hover, raised menus, popovers | — |
+| `--border-subtle` | `#252B37` | panel dividers, card edges | — |
+| `--border` | `#333B4A` | input borders, resize handles | — |
+| `--text-primary` | `#E8EBF0` | body, headings | 14.6:1 |
+| `--text-secondary` | `#A4ADBD` | labels, metadata, timestamps | 7.7:1 |
+| `--text-muted` | `#6F7889` | placeholders, disabled | 3.9:1 |
+
+**Not near-black.** `#0A0A0B` was tried first and read as a dead void: panel edges vanished and
+the whole app looked switched off. The stack is lifted into slate with a slight blue cast, which is
+what gives a dark UI depth. Each step is a visible increment, so a card on a panel on the app
+background reads as three planes without shadows.
+
+Every text pair above is measured, not judged: primary and secondary clear AA for body text
+(4.5:1), muted clears the 3:1 floor for non-essential text, and `--accent-fg` on an accent fill is
+7.5:1.
 
 ### Accent (cyan)
 
 | Token | Value | Use |
 |---|---|---|
-| `--accent` | `#06B6D4` | primary button fill, active row indicator |
-| `--accent-hover` | `#0891B2` | button hover |
-| `--accent-bright` | `#22D3EE` | icons, links, focus ring — highest contrast on dark |
-| `--accent-fg` | `#04181C` | text on an accent fill |
-| `--accent-subtle` | `rgb(6 182 212 / 0.12)` | selected row background, badge fill |
+| `--accent` | `#0E7490` | button fill, count badges — dark enough to carry white text (5.4:1) |
+| `--accent-hover` | `#10809E` | button hover — still 4.6:1 with white |
+| `--accent-bright` | `#22D3EE` | icons, links, focus ring — 9.6:1 on a panel |
+| `--accent-fg` | `#FFFFFF` | text on an accent fill |
+| `--accent-subtle` | `rgb(34 211 238 / 0.14)` | selected row background |
+
+**The accent does two opposite jobs, so it is two values.** A *fill* has to be dark enough for the
+label on top of it: white on `#0E7490` is 5.4:1, where white on the old `#06B6D4` was 2.4:1 and
+failed outright. A *mark on a dark surface* — icon, link, focus ring — needs the opposite, which is
+what `--accent-bright` is for. Using one value for both is what produced unreadable buttons.
+
+**Counts are accent-filled with a white label.** Earlier attempts used a surface step
+(`--surface-3` on `--surface-2`) which is a 1.1:1 difference and read as no background at all. A
+zero count is the exception: it gets a bordered neutral chip, because a filled badge is a call to
+attention and a zero has nothing to attend to.
 
 ### Semantic — never used decoratively
 
@@ -68,10 +87,13 @@ left border only. Info must never look like a call to action.
 
 | Token | Value | Use |
 |---|---|---|
-| `--diff-add-bg` | `rgb(34 197 94 / 0.12)` | added line background |
-| `--diff-add-gutter` | `#16A34A` | `+` marker, gutter bar |
-| `--diff-del-bg` | `rgb(239 68 68 / 0.12)` | removed line background |
-| `--diff-del-gutter` | `#DC2626` | `-` marker, gutter bar |
+| `--diff-add-bg` | `rgb(34 197 94 / 0.16)` | added line background |
+| `--diff-add-gutter` | `#22C55E` | `+` marker, gutter bar |
+| `--diff-del-bg` | `rgb(239 68 68 / 0.16)` | removed line background |
+| `--diff-del-gutter` | `#EF4444` | `-` marker, gutter bar |
+
+Tints are stronger and gutters brighter than the first pass: a lifted background needs more of
+both before a diff row reads as one.
 | `--diff-word-add` | `rgb(34 197 94 / 0.28)` | intra-line word highlight |
 | `--diff-word-del` | `rgb(239 68 68 / 0.28)` | intra-line word highlight |
 
@@ -85,41 +107,50 @@ and looks like a foreign app inside yours. See DECISIONS.md.
 
 | Role | Font | Size / line-height |
 |---|---|---|
-| UI | **Ubuntu** (400 / 500 / 700) | 14.5px / 22px default, 12.5–13px for metadata, 11.5px for the quietest labels |
-| Headings | Ubuntu 500–700 | 15px panel titles, 20px page titles |
+| UI | **Geist Variable** | 14px / 22px default, 12.5–13px for metadata, 11.5px for the quietest labels |
+| Headings | Geist 500–600 | 14.5px panel titles, 19px page titles |
 | Code, diffs, terminal | **JetBrains Mono Variable** | 12.5px / 18px |
 
 Two families, four sizes. That is the whole scale.
 
-**Ubuntu is the chosen UI face.** It was briefly replaced with Inter when the interface read
-as hard to focus on, but the real cause was that no font was loading at all — neither Ubuntu
-nor the mono face was installed, so everything fell back to Segoe UI. With Ubuntu actually
-loaded and the size raised, it is the face this tool uses. Swapping it means changing
-`--font-ui` in `tokens.css` and the matching import in `index.css`; nothing else references a
-font by name.
+**Geist is the UI face**, after Inter and Ubuntu were both tried and rejected in use. It is drawn
+for interfaces, holds its shape at 14px where a humanist face goes soft, and its even widths suit
+a dense three-panel layout.
 
-**Both faces are self-hosted** from npm (`@fontsource/ubuntu`,
-`@fontsource-variable/jetbrains-mono`), imported in `styles/index.css` — never from the Google
-Fonts CDN. This is a local tool: it must render with no network, and a font request that
-stalls would block first paint. Ubuntu is not variable, so weights are separate files and only
-400/500/700 latin are pulled (~30 kB each); 300 is too light on `--bg-base` and italics are
-unused.
+**Switching is a one-line change and needs no install.** Two faces ship loaded — Geist and Plus
+Jakarta Sans (the rounder option) — so changing `--font-ui` in `tokens.css` is the whole operation.
+Nothing else in the codebase names a font.
+
+**Every face is self-hosted** from npm (`@fontsource-variable/*`), imported in
+`styles/index.css` — never from a CDN. This is a local tool: it must render with no network, and a
+font request that stalls would block first paint. All three are variable builds, so one file covers
+every weight, and per-subset `unicode-range` means the browser fetches only the glyphs shown
+(~30 kB latin each).
 
 **Type tuning that matters at this size:**
 
-- `font-size: 14.5px` / `line-height: 22px` — the extra leading is what makes a wall of
-  streamed text readable for an hour. Secondary text sits at 12.5–13px rather than the 11–12px
-  a denser face could carry.
-- `letter-spacing: 0` — Ubuntu is already optically wide; negative tracking closes its
-  apertures and makes it muddier at this size.
-- **Identifiers go in the mono face.** Ubuntu has no disambiguation variants, so anywhere
-  `1`/`l`/`I` or `0`/`O` must be told apart — paths, branch names, hashes, diff content — is
-  rendered in JetBrains Mono. That is a stronger guarantee than a font feature anyway.
+- `font-size: 14px` / `line-height: 22px` — Geist is slightly wider per character than Ubuntu at
+  the same nominal size, so it needs a little less of it, but the generous leading stays: that is
+  what makes a wall of streamed text readable for an hour.
+- `letter-spacing: -0.003em` — Geist sets fractionally loose at UI sizes; this closes words up
+  without touching the glyphs.
+- **Identifiers go in the mono face.** Anywhere `1`/`l`/`I` or `0`/`O` must be told apart — paths,
+  branch names, hashes, diff content — renders in JetBrains Mono. Stronger than any font feature,
+  and it survives a change of UI face.
 - `font-variant-ligatures: none` on code and terminal text: `!=` becoming a glyph is
   charming in prose and misleading in a diff.
 
 **Numerals.** `font-variant-numeric: tabular-nums` (the `.tabular` class) on line numbers,
 counts and timestamps, so columns do not jitter as they update.
+
+**Markdown in the transcript.** The agent writes markdown, so assistant prose is rendered rather
+than printed: 14px at 1.6 line-height, headings at 17/16/14.5/14px — close to body size, because
+this is chat and an h1 that dwarfs its surroundings breaks the reading rhythm. Inline code is a
+bordered chip in the mono face; fenced blocks sit on `--bg-base` inside a subtle border; tables
+scroll inside their own container rather than widening the panel. Every element is given a class:
+browser defaults would arrive as white headings, blue links and serif blockquotes.
+
+**Your own messages are never re-rendered as markdown** — what you typed is what you see.
 
 ---
 

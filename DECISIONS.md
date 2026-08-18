@@ -536,3 +536,160 @@ actual mistake.
 This is the same class of error as the earlier `--verbose` and `GIT_ASKPASS` bugs: everything
 typechecked, the unit tests passed, and the defect only appeared when the code met real data on a
 real machine.
+
+---
+
+### 2026-08-18 · Off near-black, and onto Geist
+
+Two changes at the user's judgement, after seeing the built UI.
+
+**The background was too dark.** `#0A0A0B` read as a dead void: panel edges disappeared into it and
+the app looked switched off rather than dark. The surface stack is now lifted into slate with a
+slight blue cast — `#101319` / `#161A22` / `#1C212B` / `#242A36` — where each step is a visible
+increment, so a card on a panel on the app background reads as three planes without a single
+shadow. Diff tints went from 12% to 16% and the gutter colours brightened, because a lifted
+background needs more of both before a changed row reads as changed.
+
+Every text pair is measured rather than judged: primary 14.6:1, secondary 7.7:1, muted 3.9:1,
+accent-on-fill 7.5:1. A small script checked the whole palette and all eleven pairs cleared their
+floor.
+
+**Third font, and the last one I pick blind.** Inter was tried, then Ubuntu at the user's request,
+and both were rejected in use. Geist is now the default — drawn for interfaces, holds its shape at
+14px where a humanist face softens, and its even widths suit a dense three-panel layout. Base type
+moved to 14/22 with `-0.003em` tracking.
+
+The useful part is that **switching no longer requires me**. Two UI faces ship loaded (Geist and
+Plus Jakarta Sans), so changing `--font-ui` in `tokens.css` is the entire operation — no install,
+no rebuild of anything but the stylesheet. Nothing else in the codebase names a font. When the
+settings page exists, this becomes a dropdown; until then it is one line, and the user can try both
+without asking.
+
+*Pattern worth noting:* this is the second time a subjective call has cost a round trip. Loading
+alternatives up front so the user can flip between them is cheaper than being right first time.
+
+---
+
+### 2026-08-18 · Collapsing the sidebar left a dead gap
+
+Collapsing the sidebar produced a large empty region where it used to be, with the icon rail
+floating oddly beside it. Two mistakes, both from the same misunderstanding:
+
+1. The sidebar `Panel` was hidden with Tailwind's `hidden` class. `react-resizable-panels` owns
+   the layout of its children and writes `display` and `flex` **inline** — inline styles beat
+   classes, so the panel kept its width and the class did nothing visible.
+2. The collapsed icon rail was rendered as a **direct child of `Group`**, which positions Panels
+   and Separators only. Anything else is left unplaced.
+
+Fixed by taking the rail out of the group entirely: it is now a plain flex sibling, and `Group`
+holds only real panels, with the sidebar `Panel` conditionally rendered rather than hidden.
+
+Pinned with a source-level test rather than a rendered one — there is no DOM in this runner, and
+the invariant that regressed is structural: no `Panel` may carry a `className`, and nothing but
+`Panel`/`Separator` may sit directly inside `Group`. A rendering test would have been slower to
+write and no more likely to catch the next instance of the same mistake.
+
+Also noticed in the same screenshot: both the chat and the Changes panel said "No project
+selected", three inches apart. The Changes panel now says "Nothing to review — select a project to
+see its changes."
+
+---
+
+### 2026-08-18 · Attachments are paths, not uploads
+
+The CLI's `--file` flag takes cloud file ids, not local paths, and there is no local attachment
+channel. What the agent *does* have is a `Read` tool that reads text files and images from disk. So
+an attachment here means "put the file on disk and give the agent its path".
+
+- **Paste, drop, or pick.** A pasted screenshot is the common case and the one with no file to
+  choose, so the paste handler comes first; drag-and-drop and a paperclip picker cover the rest.
+- **Bytes are copied to `~/.flightdeck/attachments/<date>/`** because a browser never reveals where
+  a dropped file came from — it hands over bytes and a name, never a path. Grouped by day so the
+  folder stays browsable.
+- **The prompt gets the path, not the contents.** Appended as an explicit "Attached files:" block.
+  The agent reads what it needs, nothing is truncated, and a 2 MB screenshot never becomes 2 MB of
+  context. The UI notes that for files already in the project, typing the repo path is cheaper than
+  attaching a copy.
+- **Names are sanitised, and the test says why.** `../../etc/passwd` becomes `..-..-etc-passwd`; the
+  uuid prefix handles uniqueness so the name only has to be legible. Six tests cover traversal,
+  hostile characters, names that sanitise to nothing, and truncation.
+- **The size cap is checked twice.** base64 inflates a body by a third, so a 6 MB file trips
+  Fastify's 8 MB body limit *before* the route can explain itself — the user would see a bare
+  "413 Payload Too Large". The client now rejects oversized files up front with a real sentence, and
+  a test asserts the cap still fits inside the body limit.
+
+### Count badges
+
+The count chips beside "Changes", "Staged" and "Unstaged" had backgrounds that were invisible:
+`--surface-3` on a `--surface-2` tab bar is a 1.1:1 luminance difference. Adjacent dark surfaces
+simply cannot carry a small element on fill alone — **borders are the tool that works at these
+levels**, so chips and the active tab now carry a 1px border plus fill, and the tab bar is inset to
+`--bg-base` so the active tab reads as lifted. Worth remembering the next time something dark
+"looks flat": reach for a border, not another surface step.
+
+---
+
+### 2026-08-18 · One accent value could not do two opposite jobs
+
+Buttons were unreadable: white-ish text on a bright cyan fill. The cause was using a single
+`--accent` for two requirements that pull in opposite directions — a **fill** must be dark enough
+for the label on top of it, while a **mark on a dark surface** (icon, link, focus ring) must be
+bright enough to stand off the panel.
+
+Now split: `--accent` is `#0E7490`, which carries white at 5.4:1 (the old `#06B6D4` gave 2.4:1 and
+failed outright), and `--accent-bright` stays `#22D3EE` for marks, at 9.6:1 against a panel. Hover
+is `#10809E`, chosen because it still holds white at 4.6:1 — brightening on hover is only worth
+doing while the label stays readable.
+
+**Count badges took three attempts, and the lesson is the same each time.** Surface-on-surface
+(`--surface-3` on `--surface-2`) is a 1.1:1 difference and reads as nothing; adding a border helped
+a little; what actually works is a filled accent chip with a white label. Adjacent dark surfaces
+cannot distinguish a small element on fill alone — use a fill that is a different *hue*, or a
+border, not another step of the same grey. A zero count keeps the neutral bordered chip, since a
+filled badge is a call to attention and zero has nothing to attend to.
+
+All six affected pairs were measured after the change rather than eyeballed.
+
+---
+
+### 2026-08-18 · Clicking a project opens a chat
+
+"No chat open for flightdeck" was a dead end: every project click cost a second click for a
+decision nobody wanted to make. Selecting a project now opens its most recently used chat (by
+`lastMessageAt`, falling back to `createdAt`), and creates a fresh one when the project has none.
+
+Guarded with a ref keyed on the project id, so a failed creation cannot loop the effect. Deleting a
+chat deliberately does *not* auto-create a replacement — that would fight a user who is tidying up,
+and the panel still offers a New chat button.
+
+---
+
+### 2026-08-18 · Markdown in the transcript
+
+The agent writes markdown and the transcript printed it literally: `##` and `**` on screen, side by
+side with the IDE extension rendering the same text properly. `react-markdown` + `remark-gfm` now
+render it, with every element mapped to a design token — browser defaults would have supplied white
+headings, blue links and serif blockquotes.
+
+Three decisions inside it:
+
+- **Headings stay close to body size** (17 / 16 / 14.5 / 14px against 14px prose). This is chat, not
+  a document; an h1 that dwarfs its surroundings breaks the reading rhythm.
+- **Your own messages are not rendered as markdown.** What you typed is what you see — reformatting
+  a user's own words back at them is disorienting, and prompts frequently contain markdown-ish
+  punctuation that was never meant as markup.
+- **Memoised per text block.** While a response streams, only the final block re-parses on each
+  animation frame; everything above it is untouched. Without that, a long conversation re-parses
+  itself sixty times a second.
+
+Cost: the bundle went 477 kB → 637 kB (195 kB gzipped). Acceptable for a tool served from
+localhost; if it ever matters, the renderer is one dynamic import away from being lazy.
+
+**Verified by rendering, not by inspection.** Eight tests run the component through
+`react-dom/server` and assert the syntax is *consumed* — no `##`, no `**`, no backticks in the
+output — plus tables, strikethrough, `target="_blank"` with `noopener`, and that every element
+carries a class rather than falling back to browser styling.
+
+Two incidental fixes this needed: `test/` was missing from `tsconfig.json`'s `include`, so esbuild
+compiled JSX with the classic runtime (`React is not defined`) and the test files were never
+type-checked at all. Both are fixed, which means the whole suite is now covered by `tsc` too.

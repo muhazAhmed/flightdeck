@@ -137,6 +137,7 @@ All JSON. All errors follow one shape so the client has a single error path:
 | `PATCH /api/projects/:id` | `{name?, defaultPermissionMode?, verifyCommand?}` | `Project` |
 | `DELETE /api/projects/:id` | — | `{ok:true}` — list entry only, folder untouched |
 | `GET /api/fs/browse` | `?dir=` | `{dir, parent, entries:[{name, path, isDir, isRepo}]}` |
+| `POST /api/attachments` | `{name, dataBase64}` | writes to `~/.flightdeck/attachments/<date>/` and returns `{name, path, sizeBytes, kind}`. Names are sanitised; 5 MB cap (base64 must fit the 8 MB body limit) |
 
 `GET /api/fs/browse` with no `dir` starts at `state.lastBrowsedDir`, falling back to the
 user's home directory. There is no default projects root — see DECISIONS.md.

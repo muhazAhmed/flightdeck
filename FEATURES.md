@@ -30,6 +30,7 @@ What the tool does, grouped by area, each tagged with the phase it lands in.
 | Import existing sessions | **done** | Any Claude Code session run in a project's folder — from your editor, a terminal, or an earlier install — can be adopted and read. Sessions touched in the last few minutes are flagged as probably open elsewhere. |
 | Streaming responses | P1 | rAF-batched; text appears, never animates per token. |
 | Collapsible tool cards | P1 | Edit / Bash / Read / Glob / Grep each render appropriately. |
+| Markdown in the transcript | **done** | Headings, bold, lists, tables, links, inline code chips and fenced blocks, every element styled from the design tokens. Your own messages stay verbatim — markdown there would reformat your words back at you. |
 | Stop a running chat | P1 | Always one click away. SIGTERM then SIGKILL. |
 | Resume a chat | P1 | Reopen and keep talking — same session, full context. |
 | Per-chat permission mode | P1 | `acceptEdits` default, `plan`, `bypassPermissions` (with a warn banner). |
@@ -40,7 +41,7 @@ What the tool does, grouped by area, each tagged with the phase it lands in.
 | Rate-limit / quota chip | P2 | From `rate_limit_event`: window type and reset time. Know before starting something big. |
 | Run summary line | P2 | Turns, duration, notional cost, permission denials — from the `result` event. |
 | Sub-chats | P3 | A chat with `parentChatId`. Grouping in the sidebar; no special agent behaviour. |
-| Attach a file path to a prompt | P3 | Insert a path reference rather than pasting content — cheaper and can't be truncated. |
+| Attach files and images | **done** | Paste a screenshot, drop files, or use the paperclip. Bytes are saved to `~/.flightdeck/attachments/` and the *path* is appended to the prompt, so the agent reads what it needs with its own Read tool — no truncation, and a 2 MB screenshot never becomes 2 MB of context. |
 | Slash commands and skills | P3 | `system/init` already lists what's available; surface them as autocomplete. |
 | Edit-and-resend a prompt | Later | |
 | Fork a chat | Later | `--fork-session` resumes into a new session id. Cheap to add if wanted. |

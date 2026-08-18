@@ -7,40 +7,58 @@
  * highlight in the diff viewer can never be mistaken for an interactive affordance.
  */
 :root {
-  --bg-base: #0a0a0b;
-  --surface-1: #101012;
-  --surface-2: #17171a;
-  --surface-3: #1f1f23;
+  /*
+   * SURFACES. Near-black (#0A0A0B) read as a dead void and made every panel edge disappear;
+   * these are lifted into slate with a slight blue cast, which is what gives a dark UI depth.
+   * Each step is a visible increment, so a card on a panel on the app background reads as three
+   * distinct planes without needing shadows.
+   */
+  --bg-base: #101319;
+  --surface-1: #161a22;
+  --surface-2: #1c212b;
+  --surface-3: #242a36;
 
-  --border-subtle: #232327;
-  --border: #2e2e34;
+  --border-subtle: #252b37;
+  --border: #333b4a;
 
-  --text-primary: #ededef;
-  --text-secondary: #a1a1aa;
-  --text-muted: #6e6e77;
+  --text-primary: #e8ebf0;
+  --text-secondary: #a4adbd;
+  --text-muted: #6f7889;
 
-  --accent: #06b6d4;
-  --accent-hover: #0891b2;
+  /*
+   * ACCENT. Two jobs, two values. `--accent` is a FILL that carries white text, so it has to be
+   * dark enough for it: white on #0E7490 is 5.4:1, where white on the old #06B6D4 was 2.4:1 and
+   * failed outright. `--accent-bright` is for marks ON dark surfaces — icons, links, focus rings —
+   * where the requirement is the opposite and 9.6:1 against a panel is what you want.
+   */
+  --accent: #0e7490;
+  --accent-hover: #10809e;
   --accent-bright: #22d3ee;
-  --accent-fg: #04181c;
-  --accent-subtle: rgb(6 182 212 / 0.12);
+  --accent-fg: #ffffff;
+  --accent-subtle: rgb(34 211 238 / 0.14);
 
   --success: #22c55e;
   --danger: #ef4444;
   --warn: #f59e0b;
   --info: #a78bfa;
 
-  --diff-add-bg: rgb(34 197 94 / 0.12);
-  --diff-add-gutter: #16a34a;
-  --diff-del-bg: rgb(239 68 68 / 0.12);
-  --diff-del-gutter: #dc2626;
+  /* Slightly stronger than before: a lifted background needs more tint to read as a diff. */
+  --diff-add-bg: rgb(34 197 94 / 0.16);
+  --diff-add-gutter: #22c55e;
+  --diff-del-bg: rgb(239 68 68 / 0.16);
+  --diff-del-gutter: #ef4444;
 
-  --shadow-popover: 0 8px 24px rgb(0 0 0 / 0.5);
+  --shadow-popover: 0 12px 32px rgb(0 0 0 / 0.55);
 
-  /* Both faces are self-hosted (see styles/index.css) so rendering never depends on what is
-   * installed and the app works offline. Ubuntu is the chosen UI face; swapping it means
-   * changing this line and the matching import. */
-  --font-ui: 'Ubuntu', ui-sans-serif, system-ui, 'Segoe UI', sans-serif;
+  /*
+   * TYPOGRAPHY. Both faces are self-hosted (see styles/index.css) so rendering never depends on
+   * what is installed and the app works offline.
+   *
+   * Geist is the UI face: drawn for interfaces, even-width, and it holds its shape at 14px where
+   * a humanist face like Ubuntu goes soft. Alternatives are installed and switching is a one-line
+   * change here — `'Plus Jakarta Sans Variable'` is the rounder option if Geist reads too neutral.
+   */
+  --font-ui: 'Geist Variable', ui-sans-serif, system-ui, 'Segoe UI', sans-serif;
   --font-mono: 'JetBrains Mono Variable', ui-monospace, 'Cascadia Mono', Consolas, monospace;
 
   --duration-fast: 120ms;

@@ -9,6 +9,7 @@ import { detailOf, messageOf } from '@/lib/http';
 import { chatsApi } from './api';
 import { ChatEmptyState } from './ChatEmptyState';
 import { ChatHeader } from './ChatHeader';
+import { Markdown } from './Markdown';
 import { PromptInput } from './PromptInput';
 import { ToolCard } from './ToolCard';
 import { useChatStream } from './useChatStream';
@@ -122,18 +123,19 @@ export function ChatPanel({ project, chat, onCreateChat, onChatChanged, onRunSta
         <div className="mx-auto flex max-w-3xl flex-col gap-4">
           {blocks.map((block) => {
             if (block.kind === 'prompt') {
+              // What you typed, shown exactly as you typed it — markdown here would reformat your
+              // own words back at you.
               return (
-                <div key={block.id} className="self-end rounded-md bg-surface-3 px-3 py-2 whitespace-pre-wrap">
+                <div
+                  key={block.id}
+                  className="max-w-[85%] self-end rounded-lg border border-border-subtle bg-surface-3 px-3 py-2 text-[14px] leading-[1.6] whitespace-pre-wrap"
+                >
                   {block.text}
                 </div>
               );
             }
             if (block.kind === 'tool') return <ToolCard key={block.id} tool={block.tool} />;
-            return (
-              <div key={block.id} className="whitespace-pre-wrap text-text-primary">
-                {block.text}
-              </div>
-            );
+            return <Markdown key={block.id}>{block.text}</Markdown>;
           })}
 
           {running ? (

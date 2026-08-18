@@ -1,15 +1,15 @@
 @import 'tailwindcss';
 
-/* Self-hosted from npm rather than fetched from Google: no CDN request, no reliance on what
- * happens to be installed, and the app renders correctly with no network at all — a font
- * request that hangs would otherwise block first paint on a local tool.
+/* Self-hosted from npm rather than fetched from a CDN: no external request, no reliance on what
+ * happens to be installed, and the app renders correctly with no network at all — a font request
+ * that stalls would otherwise block first paint on a local tool.
  *
- * Ubuntu is not a variable font, so weights are separate files. Only the three the UI uses
- * are pulled: 300 is too light on `--bg-base`, and italics are never used here. Mono keeps
- * its variable build. */
-@import '@fontsource/ubuntu/latin-400.css';
-@import '@fontsource/ubuntu/latin-500.css';
-@import '@fontsource/ubuntu/latin-700.css';
+ * Two UI faces are loaded so switching is a one-line change to `--font-ui` in tokens.css with no
+ * install step. Geist is the default; Plus Jakarta Sans is the rounder alternative. Variable
+ * builds, so a single file covers every weight, and each subset carries a `unicode-range` — the
+ * browser fetches only the glyphs actually shown. */
+@import '@fontsource-variable/geist/wght.css';
+@import '@fontsource-variable/plus-jakarta-sans/wght.css';
 @import '@fontsource-variable/jetbrains-mono/wght.css';
 
 @import './tokens.css';
@@ -50,22 +50,22 @@
     background: var(--bg-base);
     color: var(--text-primary);
     font-family: var(--font-ui);
-    /* 14.5/22. Ubuntu needs size to hold its shape, and the extra leading is what makes a
-     * wall of streamed text readable for hours. Secondary text sits at 12.5–13px rather than
-     * the 11–12px a denser face could carry. */
-    font-size: 14.5px;
+    /* 14/22: Geist is a touch wider per character than Ubuntu at the same nominal size, so it
+     * needs slightly less of it — but the generous leading stays, because that is what makes a
+     * wall of streamed text readable for hours. */
+    font-size: 14px;
     line-height: 22px;
-    /* Zero tracking: Ubuntu is already optically wide, and negative tracking closes its
-     * apertures and makes it muddier at this size — the opposite of what helps. */
-    letter-spacing: 0;
+    /* A hair tighter. Geist sets fractionally loose at UI sizes; this closes words up without
+     * touching the glyphs themselves. */
+    letter-spacing: -0.003em;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
   }
 
-  /* Ubuntu ships no disambiguation variants, so nothing to opt into here. Anywhere `1` / `l`
-   * / `I` must be told apart — file paths, branch names, hashes, diff content — is rendered
-   * in JetBrains Mono rather than the UI face, which is the more reliable fix anyway. */
+  /* Anywhere `1` / `l` / `I` or `0` / `O` must be told apart — file paths, branch names, hashes,
+   * diff content — renders in JetBrains Mono rather than the UI face. That is a stronger
+   * guarantee than any font feature, and it survives a change of UI face. */
 
   code,
   pre,

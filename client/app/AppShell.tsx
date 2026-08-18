@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Group, Panel, Separator } from 'react-resizable-panels';
 import { toast } from 'sonner';
 import { PanelLeft, PanelRight } from 'lucide-react';
@@ -40,18 +40,17 @@ export function AppShell() {
   const loadChats = useCallback(async (projectId: string | null) => {
     if (!projectId) {
       setChats([]);
-      return;
+      return [];
     }
     try {
-      setChats(await chatsApi.list(projectId));
+      const loaded = await chatsApi.list(projectId);
+      setChats(loaded);
+      return loaded;
     } catch (error) {
       toast.error(messageOf(error), { description: detailOf(error) });
+      return [];
     }
   }, []);
-
-  useEffect(() => {
-    void loadChats(selectedProjectId);
-  }, [selectedProjectId, loadChats]);
 
   const createChat = useCallback(
     async (projectId: string) => {
@@ -65,6 +64,44 @@ export function AppShell() {
     },
     [selectChat]
   );
+
+  /**
+   * Selecting a project opens a chat rather than an empty panel: the most recently used one, or a
+   * fresh chat when the project has none. "No chat open" was a dead end that made every project
+   * click cost a second click for no decision.
+   *
+   * `autoOpened` guards against a loop — if creation fails, the effect must not keep retrying for
+   * the same project on every render.
+   */
+  const autoOpened = useRef<string | null>(null);
+
+  useEffect(() => {
+    const projectId = selectedProjectId;
+    if (!projectId) {
+      autoOpened.current = null;
+      void loadChats(null);
+      return;
+    }
+
+    let cancelled = false;
+    void (async () => {
+      const loaded = await loadChats(projectId);
+      if (cancelled || autoOpened.current === projectId) return;
+      autoOpened.current = projectId;
+
+      const mostRecent = [...loaded].sort(
+        (a, b) =>
+          Date.parse(b.lastMessageAt ?? b.createdAt) - Date.parse(a.lastMessageAt ?? a.createdAt)
+      )[0];
+
+      if (mostRecent) selectChat(mostRecent.id);
+      else await createChat(projectId);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedProjectId, loadChats, createChat, selectChat]);
 
   const onRunStateChange = useCallback(
     (running: boolean) => {
@@ -91,29 +128,13 @@ export function AppShell() {
         </div>
       ) : null}
 
-      <Group orientation="horizontal" className="flex-1">
-        <Panel
-          id="sidebar"
-          defaultSize="18"
-          minSize="12"
-          maxSize="32"
-          className={sidebarCollapsed ? 'hidden' : undefined}
-        >
-          <ProjectSidebar
-            projects={projects}
-            loading={loading}
-            chats={chats}
-            runningChatIds={runningChatIds}
-            collapsed={false}
-            onAddProject={() => setAddOpen(true)}
-            onRemoveProject={(id) => void remove(id)}
-            onChatsChanged={() => void loadChats(selectedProjectId)}
-            onCreateChat={(id) => void createChat(id)}
-            onImportSession={setImportFor}
-            onCollapse={toggleSidebar}
-          />
-        </Panel>
-
+      {/*
+        The collapsed rail is a plain flex sibling, NOT a child of Group.
+        Group lays out Panels and Separators only, and a Panel cannot be hidden with a class:
+        the library writes `display` and `flex` inline, and inline styles beat classes — so a
+        `hidden` panel kept its width and left a dead gap where the sidebar used to be.
+      */}
+      <div className="flex min-h-0 flex-1">
         {sidebarCollapsed ? (
           <ProjectSidebar
             projects={projects}
@@ -128,31 +149,50 @@ export function AppShell() {
             onImportSession={setImportFor}
             onCollapse={toggleSidebar}
           />
-        ) : (
-          <ResizeHandle />
-        )}
+        ) : null}
 
-        <Panel id="chat" minSize="30">
-          <ChatPanel
-            project={project}
-            chat={chat}
-            onCreateChat={() => project && void createChat(project.id)}
-            onChatChanged={(updated) =>
-              setChats((current) => current.map((c) => (c.id === updated.id ? updated : c)))
-            }
-            onRunStateChange={onRunStateChange}
-          />
-        </Panel>
-
-        {changesCollapsed ? null : (
-          <>
-            <ResizeHandle />
-            <Panel id="changes" defaultSize="26" minSize="18" maxSize="45">
-              <ChangesPanel project={project} revision={gitRevision} />
+        <Group orientation="horizontal" className="min-w-0 flex-1">
+          {sidebarCollapsed ? null : (
+            <Panel id="sidebar" defaultSize="18" minSize="12" maxSize="32">
+              <ProjectSidebar
+                projects={projects}
+                loading={loading}
+                chats={chats}
+                runningChatIds={runningChatIds}
+                collapsed={false}
+                onAddProject={() => setAddOpen(true)}
+                onRemoveProject={(id) => void remove(id)}
+                onChatsChanged={() => void loadChats(selectedProjectId)}
+                onCreateChat={(id) => void createChat(id)}
+                onImportSession={setImportFor}
+                onCollapse={toggleSidebar}
+              />
             </Panel>
-          </>
-        )}
-      </Group>
+          )}
+          {sidebarCollapsed ? null : <ResizeHandle />}
+
+          <Panel id="chat" minSize="30">
+            <ChatPanel
+              project={project}
+              chat={chat}
+              onCreateChat={() => project && void createChat(project.id)}
+              onChatChanged={(updated) =>
+                setChats((current) => current.map((c) => (c.id === updated.id ? updated : c)))
+              }
+              onRunStateChange={onRunStateChange}
+            />
+          </Panel>
+
+          {changesCollapsed ? null : (
+            <>
+              <ResizeHandle />
+              <Panel id="changes" defaultSize="26" minSize="18" maxSize="45">
+                <ChangesPanel project={project} revision={gitRevision} />
+              </Panel>
+            </>
+          )}
+        </Group>
+      </div>
 
       <StatusBar
         sidebarCollapsed={sidebarCollapsed}

@@ -66,7 +66,10 @@ export function ChangesPanel({ project, revision }: ChangesPanelProps) {
     else if (tab === 'staged' && staged.length === 0 && changed.length > 0) setTab('unstaged');
   }, [tab, staged.length, changed.length]);
 
-  if (!project) return <EmptyState title="No project selected" />;
+  // Distinct from the chat panel's message, which says the same thing three inches to the left.
+  if (!project) {
+    return <EmptyState title="Nothing to review" hint="Select a project to see its changes." />;
+  }
 
   const plural = (files: string[]) => `${files.length} file${files.length === 1 ? '' : 's'}`;
 
@@ -198,9 +201,7 @@ export function ChangesPanel({ project, revision }: ChangesPanelProps) {
         <div className="flex items-center gap-2">
           <span className="text-[14.5px] font-semibold tracking-tight">Changes</span>
           {hasChanges ? (
-            <span className="tabular rounded-full bg-accent-subtle px-1.5 py-0.5 text-[11.5px] font-medium text-accent-bright">
-              {staged.length + changed.length}
-            </span>
+            <CountBadge value={staged.length + changed.length} />
           ) : null}
 
           <span className="ml-auto flex items-center gap-0.5">
@@ -237,7 +238,7 @@ export function ChangesPanel({ project, revision }: ChangesPanelProps) {
           />
         </div>
 
-        <div className="mt-2.5 flex gap-1 rounded-lg bg-surface-2 p-1">
+        <div className="mt-2.5 flex gap-1 rounded-lg border border-border-subtle bg-(--bg-base) p-1">
           <TabButton active={tab === 'unstaged'} count={changed.length} onClick={() => setTab('unstaged')}>
             Unstaged
           </TabButton>
@@ -341,8 +342,9 @@ export function ChangesPanel({ project, revision }: ChangesPanelProps) {
 
         {git.stashes.length > 0 ? (
           <div className="border-t border-border-subtle px-2 py-2">
-            <p className="px-2 py-1 text-[12px] text-text-muted">
-              Stashes <span className="tabular">({git.stashes.length})</span>
+            <p className="flex items-center gap-1.5 px-2 py-1 text-[12px] text-text-muted">
+              Stashes
+              <CountBadge value={git.stashes.length} />
             </p>
             {git.stashes.map((entry) => (
               <div key={entry.ref} className="group flex items-center gap-2 rounded-md px-2 py-1 hover:bg-surface-2">
@@ -464,18 +466,15 @@ function TabButton({
       className={cn(
         'flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-[13px]',
         'transition-colors duration-(--duration-fast)',
-        active ? 'bg-surface-3 font-medium text-text-primary' : 'text-text-secondary hover:text-text-primary'
+        // Adjacent dark surfaces differ by ~1.1:1 in luminance, which is too little for a small
+        // element to read on its own — the border is what actually makes the active tab visible.
+        active
+          ? 'border border-border bg-surface-2 font-medium text-text-primary'
+          : 'border border-transparent text-text-secondary hover:bg-surface-2/60 hover:text-text-primary'
       )}
     >
       {children}
-      <span
-        className={cn(
-          'tabular rounded-full px-1.5 text-[11px]',
-          active ? 'bg-accent-subtle text-accent-bright' : 'bg-surface-3 text-text-muted'
-        )}
-      >
-        {count}
-      </span>
+      <CountBadge value={count} />
     </button>
   );
 }
@@ -493,8 +492,9 @@ function FileList({ files, selected, staged, onSelect, groupActions, rowActions 
   return (
     <div className="px-2 py-2">
       <div className="flex items-center gap-1 px-2 pb-1">
-        <p className="text-[12px] text-text-muted">
-          {staged ? 'Staged files' : 'Changed files'} <span className="tabular">({files.length})</span>
+        <p className="flex items-center gap-1.5 text-[12px] text-text-muted">
+          {staged ? 'Staged files' : 'Changed files'}
+          <CountBadge value={files.length} />
         </p>
         <div className="ml-auto flex items-center gap-0.5">{groupActions}</div>
       </div>
@@ -563,5 +563,26 @@ function RemoteButton({
       />
       {count > 0 ? <span className="tabular -ml-1 text-[11px] text-accent-bright">{count}</span> : null}
     </div>
+  );
+}
+
+/**
+ * A count. Filled with the accent and labelled in white, because the earlier surface-on-surface
+ * chips were a 1.1:1 difference and simply did not read as a background at all.
+ *
+ * Zero is the exception: a filled badge is a call to attention, and there is nothing to attend to.
+ */
+function CountBadge({ value }: { value: number }) {
+  return (
+    <span
+      className={cn(
+        'tabular inline-flex min-w-5 items-center justify-center rounded-full px-1.5 py-0.5 text-[11px] font-semibold',
+        value === 0
+          ? 'border border-border-subtle bg-surface-3 text-text-muted'
+          : 'bg-accent text-(--accent-fg)'
+      )}
+    >
+      {value}
+    </span>
   );
 }

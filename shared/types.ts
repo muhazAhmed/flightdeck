@@ -52,6 +52,18 @@ export interface Chat {
   lastMessageAt: string | null;
 }
 
+/**
+ * A file handed to a prompt. The agent reads it from `path` with its own Read tool — images
+ * included — so an attachment is a path, never an upload into the conversation.
+ */
+export interface Attachment {
+  name: string;
+  /** Absolute path on this machine. */
+  path: string;
+  sizeBytes: number;
+  kind: 'image' | 'file';
+}
+
 /** Whoever git says you are, machine-wide. Shown in the sidebar footer. */
 export interface UserInfo {
   name: string | null;
