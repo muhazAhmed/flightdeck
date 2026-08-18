@@ -27,12 +27,15 @@ What the tool does, grouped by area, each tagged with the phase it lands in.
 | Feature | Phase | Notes |
 |---|---|---|
 | Multiple chats per project | P1 | Each chat is a `--session-id` UUID. |
+| Import existing sessions | **done** | Any Claude Code session run in a project's folder — from your editor, a terminal, or an earlier install — can be adopted and read. Sessions touched in the last few minutes are flagged as probably open elsewhere. |
 | Streaming responses | P1 | rAF-batched; text appears, never animates per token. |
 | Collapsible tool cards | P1 | Edit / Bash / Read / Glob / Grep each render appropriately. |
 | Stop a running chat | P1 | Always one click away. SIGTERM then SIGKILL. |
 | Resume a chat | P1 | Reopen and keep talking — same session, full context. |
 | Per-chat permission mode | P1 | `acceptEdits` default, `plan`, `bypassPermissions` (with a warn banner). |
-| Model / cwd / tools in the header | P1 | Straight from the `system/init` event. |
+| Model switcher per chat | **done** | Pins Opus 5 / Sonnet 5 / Haiku 4.5, or leaves the CLI default. Passed as `--model`; with nothing pinned the header shows what the session actually reported. |
+| Search projects | **done** | Filters on name and path. `Ctrl+K` still reaches anything in two keystrokes. |
+| Staged / Unstaged tabs | **done** | With counts, and the panel follows the work — staging everything moves you to Staged, committing moves you back. |
 | History replay on reopen | **done** | Rendered from Claude Code's own transcript through the same reducer as the live stream, so a resumed chat is indistinguishable from one you watched. |
 | Rate-limit / quota chip | P2 | From `rate_limit_event`: window type and reset time. Know before starting something big. |
 | Run summary line | P2 | Turns, duration, notional cost, permission denials — from the `result` event. |
@@ -51,11 +54,12 @@ What the tool does, grouped by area, each tagged with the phase it lands in.
 | Diff viewer | P2 | Monaco diff editor, themed to the diff tokens. One instance, models swapped. |
 | Stage / unstage per file | P2 | |
 | Commit | P2 | Message box, commits staged or a chosen subset. |
+| Drafted commit message | **done** | Sparkle button in the message box reads the staged diff and writes a message: imperative subject under 72 chars, body only when the reason is not obvious. Lands in the box for editing — it never commits, and it warns if the diff was too large to send whole. |
 | Discard changes | P2 | Destructive — confirm names the exact file. |
 | Stash / stash pop / stash list | P2 | |
 | Live update while the agent works | P2 | Files appear in the panel as it edits. Half the appeal of the tool. |
 | Fetch / pull / push | **done** | Pull is `--ff-only` and refuses on a dirty tree; push is human-only, never forced, and shows the commit count before you confirm. |
-| Branch list + checkout | P3 | Guarded: refuses on a dirty tree, with a reason. |
+| Branch list, checkout, create, delete | **done** | Picker shows each branch's last commit and date. Checkout refuses on a dirty tree; creating a branch deliberately carries your changes. Delete refuses when commits exist nowhere else, and force is a separate confirmation. Remote branches check out as tracking branches. |
 | Commit history | P3 | Recent commits, click for the diff. |
 | Word-level diff highlighting | P3 | |
 | Push | **No** | Deliberately absent. See the safety rule. |

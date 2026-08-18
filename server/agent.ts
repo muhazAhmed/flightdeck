@@ -64,6 +64,8 @@ function buildArgs(chat: Chat, resume: boolean): string[] {
     '--permission-mode',
     chat.permissionMode
   ];
+  // Absent means the CLI's own default; passing an empty string would be an error.
+  if (chat.model) args.push('--model', chat.model);
   // A session id can only be *claimed* once. After the first turn the same conversation
   // has to be re-entered with --resume, or the CLI rejects the id as already in use.
   args.push(resume ? '--resume' : '--session-id', chat.sessionId);

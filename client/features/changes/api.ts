@@ -1,5 +1,15 @@
 import { http } from '@/lib/http';
-import type { GitStatus, IdentityState, RemoteResult, SavedIdentity, StageResult, StashEntry } from '@shared/types';
+import type {
+  BranchList,
+  BranchResult,
+  CommitMessageDraft,
+  GitStatus,
+  IdentityState,
+  RemoteResult,
+  SavedIdentity,
+  StageResult,
+  StashEntry
+} from '@shared/types';
 
 interface CommitResult {
   commit: string;
@@ -23,6 +33,10 @@ export const gitApi = {
 
   commit: (projectId: string, message: string, files?: string[]) =>
     http.post<CommitResult>('/api/git/commit', { projectId, message, files }),
+
+  /** Drafts a message from the staged diff. Suggestion only — it never commits. */
+  draftMessage: (projectId: string, model?: string) =>
+    http.post<CommitMessageDraft>('/api/git/commit-message', { projectId, model }),
 
   stashList: (projectId: string) =>
     http.get<StashEntry[]>(`/api/git/stash-list?projectId=${encodeURIComponent(projectId)}`),
@@ -49,4 +63,24 @@ export const identityApi = {
 
   /** Removes a shortcut. Never changes what any repository commits as. */
   forget: (id: string) => http.delete<{ ok: true; saved: SavedIdentity[] }>(`/api/identities/${id}`)
+};
+
+export const branchApi = {
+  list: (projectId: string) =>
+    http.get<BranchList>(`/api/git/branches?projectId=${encodeURIComponent(projectId)}`),
+
+  /** Refused with `GIT_DIRTY` when the tree has uncommitted work — git would otherwise carry
+   *  it onto the other branch. */
+  checkout: (projectId: string, branch: string) =>
+    http.post<BranchResult>('/api/git/checkout', { projectId, branch }),
+
+  /** Creating a branch deliberately does not require a clean tree: the working changes come
+   *  along, which is the point when you realise mid-edit that this should not be on main. */
+  create: (projectId: string, branch: string, from?: string) =>
+    http.post<BranchResult>('/api/git/branch', { projectId, branch, from }),
+
+  remove: (projectId: string, branch: string, force = false) =>
+    http.delete<{ summary: string; branches: BranchList }>(
+      `/api/git/branch/${encodeURIComponent(branch)}?projectId=${encodeURIComponent(projectId)}&force=${force}`
+    )
 };

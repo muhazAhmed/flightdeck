@@ -36,7 +36,7 @@ export function ConfirmDialog({ request, onClose }: ConfirmDialogProps) {
     <Dialog.Root open={request !== null} onOpenChange={(open) => !open && onClose()}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-40 bg-black/60" />
-        <Dialog.Content className="fixed top-1/2 left-1/2 z-50 w-[min(460px,92vw)] -translate-x-1/2 -translate-y-1/2 rounded-lg border border-border-default bg-surface-1 p-4 shadow-[var(--shadow-popover)]">
+        <Dialog.Content className="fixed top-1/2 left-1/2 z-50 w-[min(460px,92vw)] -translate-x-1/2 -translate-y-1/2 rounded-lg border border-border-default bg-surface-1 p-4 shadow-(--shadow-popover)">
           <Dialog.Title className="mb-1 font-medium">{request?.title}</Dialog.Title>
           <Dialog.Description className="mb-3 text-[12.5px] leading-4 text-text-secondary">
             {request?.description}

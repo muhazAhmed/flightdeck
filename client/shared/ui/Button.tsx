@@ -27,7 +27,7 @@ export function Button({ variant = 'secondary', size = 'md', className, ...props
     <button
       className={cn(
         'inline-flex items-center justify-center font-medium whitespace-nowrap',
-        'transition-colors duration-[var(--duration-fast)]',
+        'transition-colors duration-(--duration-fast)',
         'disabled:pointer-events-none disabled:opacity-40',
         VARIANTS[variant],
         SIZES[size],

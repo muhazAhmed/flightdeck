@@ -27,7 +27,7 @@ export function CommandPalette({ projects, chats }: CommandPaletteProps) {
       onOpenChange={setOpen}
       label="Jump to a project or chat"
       className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 pt-[12vh]"
-      contentClassName="w-[min(560px,92vw)] overflow-hidden rounded-lg border border-border-default bg-surface-1 shadow-[var(--shadow-popover)]"
+      contentClassName="w-[min(560px,92vw)] overflow-hidden rounded-lg border border-border-default bg-surface-1 shadow-(--shadow-popover)"
     >
       <Command.Input
         placeholder="Jump to a project or chat…"

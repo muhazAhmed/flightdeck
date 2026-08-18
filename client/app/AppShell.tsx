@@ -6,6 +6,7 @@ import type { Chat } from '@shared/types';
 import { ChangesPanel } from '@/features/changes/ChangesPanel';
 import { chatsApi } from '@/features/chat/api';
 import { ChatPanel } from '@/features/chat/ChatPanel';
+import { ImportSessionDialog } from '@/features/chat/ImportSessionDialog';
 import { CommandPalette } from '@/features/command-palette/CommandPalette';
 import { AddProjectDialog } from '@/features/projects/AddProjectDialog';
 import { ProjectSidebar } from '@/features/projects/ProjectSidebar';
@@ -19,12 +20,14 @@ export function AppShell() {
   const [chats, setChats] = useState<Chat[]>([]);
   const [runningChatIds, setRunningChatIds] = useState<string[]>([]);
   const [addOpen, setAddOpen] = useState(false);
+  const [importFor, setImportFor] = useState<string | null>(null);
   // Incremented when a run finishes so the Changes panel refetches the files it touched.
   const [gitRevision, setGitRevision] = useState(0);
 
   const selectedProjectId = useWorkspace((s) => s.selectedProjectId);
   const selectedChatId = useWorkspace((s) => s.selectedChatId);
   const selectChat = useWorkspace((s) => s.selectChat);
+  const selectProject = useWorkspace((s) => s.selectProject);
   const sidebarCollapsed = useWorkspace((s) => s.sidebarCollapsed);
   const changesCollapsed = useWorkspace((s) => s.changesCollapsed);
   const toggleSidebar = useWorkspace((s) => s.toggleSidebar);
@@ -106,6 +109,8 @@ export function AppShell() {
             onRemoveProject={(id) => void remove(id)}
             onChatsChanged={() => void loadChats(selectedProjectId)}
             onCreateChat={(id) => void createChat(id)}
+            onImportSession={setImportFor}
+            onCollapse={toggleSidebar}
           />
         </Panel>
 
@@ -120,6 +125,8 @@ export function AppShell() {
             onRemoveProject={(id) => void remove(id)}
             onChatsChanged={() => void loadChats(selectedProjectId)}
             onCreateChat={(id) => void createChat(id)}
+            onImportSession={setImportFor}
+            onCollapse={toggleSidebar}
           />
         ) : (
           <ResizeHandle />
@@ -155,6 +162,17 @@ export function AppShell() {
       />
 
       <AddProjectDialog open={addOpen} onOpenChange={setAddOpen} onAdd={add} />
+      <ImportSessionDialog
+        project={projects.find((p) => p.id === importFor) ?? null}
+        open={importFor !== null}
+        onOpenChange={(next) => setImportFor(next ? importFor : null)}
+        onImported={() => {
+          // The imported chat belongs to the project it was imported for, which is not
+          // necessarily the one currently selected.
+          if (importFor === selectedProjectId) void loadChats(selectedProjectId);
+          else if (importFor) selectProject(importFor);
+        }}
+      />
       <CommandPalette projects={projects} chats={chats} />
     </div>
   );
@@ -164,7 +182,7 @@ export function AppShell() {
  *  widened on hover so it is actually grabbable. */
 function ResizeHandle() {
   return (
-    <Separator className="w-px shrink-0 bg-border-subtle transition-colors duration-[var(--duration-fast)] hover:w-[3px] hover:bg-accent-bright data-[state=drag]:bg-accent-bright" />
+    <Separator className="w-px shrink-0 bg-border-subtle transition-colors duration-(--duration-fast) hover:w-[3px] hover:bg-accent-bright data-[state=drag]:bg-accent-bright" />
   );
 }
 

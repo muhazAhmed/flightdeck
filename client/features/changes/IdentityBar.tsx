@@ -104,7 +104,7 @@ export function IdentityBar({ projectId }: IdentityBarProps) {
             <DropdownMenu.Content
               align="start"
               sideOffset={4}
-              className="z-50 w-72 rounded-md border border-border-default bg-surface-2 p-1 shadow-[var(--shadow-popover)]"
+              className="z-50 w-72 rounded-md border border-border-default bg-surface-2 p-1 shadow-(--shadow-popover)"
             >
               <DropdownMenu.Label className="px-2 py-1 text-[12.5px] text-text-muted">
                 Commit as — written to this repository only
@@ -200,7 +200,7 @@ function AddIdentityDialog({
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-40 bg-black/60" />
-        <Dialog.Content className="fixed top-1/2 left-1/2 z-50 w-[min(420px,92vw)] -translate-x-1/2 -translate-y-1/2 rounded-lg border border-border-default bg-surface-1 p-4 shadow-[var(--shadow-popover)]">
+        <Dialog.Content className="fixed top-1/2 left-1/2 z-50 w-[min(420px,92vw)] -translate-x-1/2 -translate-y-1/2 rounded-lg border border-border-default bg-surface-1 p-4 shadow-(--shadow-popover)">
           <Dialog.Title className="mb-1 font-medium">Add an identity</Dialog.Title>
           <Dialog.Description className="mb-3 text-[12.5px] text-text-secondary">
             Saved for reuse, and applied to this repository now. Your global git config is not

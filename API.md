@@ -153,6 +153,8 @@ user's home directory. There is no default projects root — see DECISIONS.md.
 | `POST /api/chats/:id/message` | `{text}` | **SSE stream** of the events in §1 |
 | `POST /api/chats/:id/abort` | — | `{ok:true}` — SIGTERM the child, then SIGKILL after 2s |
 | `GET /api/chats/running` | — | `{[projectId]: chatId}` for the sidebar indicators |
+| `GET /api/sessions/discoverable` | `?projectId=` | transcripts on disk no chat points at: `{sessionId, firstPrompt, sizeBytes, modifiedAt, active}` |
+| `POST /api/sessions/import` | `{projectId, sessionId, title?}` | adopts an existing session as a chat; `lastMessageAt` is set from the file so the next message resumes rather than claiming the id |
 
 ### Git — every route resolves the path from `projectId`, never from the client
 
@@ -164,13 +166,16 @@ user's home directory. There is no default projects root — see DECISIONS.md.
 | `POST /api/git/unstage` | `{projectId, files[]}` | `restore --staged`, so the working tree is never touched |
 | `POST /api/git/discard` | `{projectId, files[]}` | destructive — client must confirm by name |
 | `POST /api/git/commit` | `{projectId, message, files?}` | `files` omitted = commit staged |
+| `POST /api/git/commit-message` | `{projectId, model?}` | drafts a message from the staged diff via a one-shot `claude -p`; `NOTHING_STAGED` when the index is empty. Returns `{message, truncated, costUsd, model}` |
 | `POST /api/git/stash` | `{projectId, message?, includeUntracked?}` | |
 | `POST /api/git/stash-pop` | `{projectId, index?}` | |
 | `GET /api/git/stash-list` | `?projectId=` | |
 | `POST /api/git/fetch` | `{projectId}` | `--prune`; returns git's summary + fresh status |
 | `POST /api/git/pull` | `{projectId}` | `--ff-only`; refuses on a dirty tree (`GIT_DIRTY`) or no upstream (`NO_UPSTREAM`) |
 | `POST /api/git/push` | `{projectId}` | current branch to its own remote; sets upstream on first push; **never** `--force`. Remote/branch are read from config, never from the request |
-| `GET /api/git/branches` | `?projectId=` | `{current, local[], remote[]}` |
+| `GET /api/git/branches` | `?projectId=` | `{current, local[{name,current,upstream,subject,when}], remote[]}` |
+| `POST /api/git/branch` | `{projectId, branch, from?}` | create and switch; carries the working tree on purpose; validates the name (`BAD_BRANCH_NAME`) |
+| `DELETE /api/git/branch/:branch` | `?projectId=&force=` | `-d` by default (`UNMERGED` when commits exist nowhere else); refuses the checked-out branch (`CURRENT_BRANCH`) |
 | `GET /api/git/log` | `?projectId=&limit=50` | `{hash, subject, author, date}[]` |
 | `POST /api/git/checkout` | `{projectId, branch}` | **refuse** with `GIT_DIRTY` when the tree is dirty |
 | `GET /api/git/identity` | `?projectId=` | `{current:{name,email,scope}, saved[]}` — `scope` is `local` \| `global` \| `none` |

@@ -1,13 +1,16 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import {
   Archive,
   ArchiveRestore,
   ArrowDownToLine,
   ArrowUpFromLine,
-  GitBranch,
+  FileCode2,
+  Loader,
   Minus,
   Plus,
   RefreshCw,
+  Settings,
+  Sparkles,
   Undo2
 } from 'lucide-react';
 import type { GitFile, Project } from '@shared/types';
@@ -16,20 +19,24 @@ import { ConfirmDialog, type ConfirmRequest } from '@/shared/ui/ConfirmDialog';
 import { EmptyState } from '@/shared/ui/EmptyState';
 import { IconButton } from '@/shared/ui/IconButton';
 import { Skeleton } from '@/shared/ui/Skeleton';
+import { toast } from 'sonner';
 import { cn } from '@/lib/cn';
+import { detailOf, messageOf } from '@/lib/http';
+import { gitApi } from './api';
+import { BranchMenu } from './BranchMenu';
 import { DiffView } from './DiffView';
 import { IdentityBar } from './IdentityBar';
 import { useGitPanel, type SelectedFile } from './useGitPanel';
 
 interface ChangesPanelProps {
   project: Project | null;
-  /** Bumped when a run finishes, so files the agent touched appear without a manual
-   *  refresh. */
+  /** Bumped when a run finishes, so files the agent touched appear without a manual refresh. */
   revision: number;
 }
 
-/** Colour follows git's meaning, never the accent: green added, red deleted, amber
- *  modified. */
+type Tab = 'unstaged' | 'staged';
+
+/** Colour follows git's meaning, never the accent: green added, red deleted, amber modified. */
 const STATUS_COLOR: Record<string, string> = {
   A: 'text-success',
   '?': 'text-success',
@@ -44,13 +51,22 @@ export function ChangesPanel({ project, revision }: ChangesPanelProps) {
   const git = useGitPanel(project?.id ?? null, revision);
   const [message, setMessage] = useState('');
   const [confirm, setConfirm] = useState<ConfirmRequest | null>(null);
+  const [tab, setTab] = useState<Tab>('unstaged');
+  const [drafting, setDrafting] = useState(false);
+
+  const status = git.status;
+  const staged = status?.staged ?? [];
+  const changed = [...(status?.unstaged ?? []), ...(status?.untracked ?? [])];
+  const hasChanges = staged.length + changed.length > 0;
+
+  // Follow the work: staging everything empties Unstaged, committing empties Staged. Move to
+  // whichever side has content rather than leaving the user on a blank tab.
+  useEffect(() => {
+    if (tab === 'unstaged' && changed.length === 0 && staged.length > 0) setTab('staged');
+    else if (tab === 'staged' && staged.length === 0 && changed.length > 0) setTab('unstaged');
+  }, [tab, staged.length, changed.length]);
 
   if (!project) return <EmptyState title="No project selected" />;
-
-  const { status } = git;
-  const changed = [...(status?.unstaged ?? []), ...(status?.untracked ?? [])];
-  const staged = status?.staged ?? [];
-  const hasChanges = staged.length + changed.length > 0;
 
   const plural = (files: string[]) => `${files.length} file${files.length === 1 ? '' : 's'}`;
 
@@ -86,11 +102,11 @@ export function ChangesPanel({ project, revision }: ChangesPanelProps) {
   }
 
   function askStash() {
-    const files = [...staged, ...changed].map((f) => f.path);
     setConfirm({
       title: 'Stash all changes?',
-      description: 'Saves everything, including untracked files, and leaves a clean working tree. Recoverable with pop.',
-      files,
+      description:
+        'Saves everything, including untracked files, and leaves a clean working tree. Recoverable with pop.',
+      files: [...staged, ...changed].map((f) => f.path),
       confirmLabel: 'Stash',
       onConfirm: () => void git.stash()
     });
@@ -107,26 +123,24 @@ export function ChangesPanel({ project, revision }: ChangesPanelProps) {
   }
 
   function askPull() {
-    const branch = status?.branch ?? 'this branch';
     setConfirm({
-      title: `Pull ${branch}?`,
+      title: `Pull ${status?.branch ?? 'this branch'}?`,
       description:
         'Fast-forward only, so nothing is merged behind your back. Refused if the working tree is dirty.',
-      files: status?.tracking ? [`from ${status.tracking}`] : ['no upstream configured'],
+      files: [status?.tracking ? `from ${status.tracking}` : 'no upstream configured'],
       confirmLabel: 'Pull',
       onConfirm: () => void git.remote('pull')
     });
   }
 
   function askPush() {
-    const branch = status?.branch ?? 'this branch';
     const ahead = status?.ahead ?? 0;
     setConfirm({
-      title: `Push ${branch}?`,
+      title: `Push ${status?.branch ?? 'this branch'}?`,
       description: status?.tracking
         ? `Sends ${ahead} local commit${ahead === 1 ? '' : 's'} to ${status.tracking}. Never forced.`
-        : 'This branch has no upstream yet — pushing will create it and set the upstream.',
-      files: [status?.tracking ? `${branch} → ${status.tracking}` : `${branch} → new upstream branch`],
+        : 'This branch has no upstream yet — pushing creates it and sets the upstream.',
+      files: [status?.tracking ? `${status.branch} → ${status.tracking}` : `${status?.branch} → new upstream`],
       confirmLabel: 'Push',
       onConfirm: () => void git.remote('push')
     });
@@ -136,153 +150,213 @@ export function ChangesPanel({ project, revision }: ChangesPanelProps) {
     if (await git.commit(message.trim())) setMessage('');
   }
 
+  /**
+   * Draft a message from the staged diff.
+   *
+   * Deliberately fills the box rather than committing: this is the one place in the app where a
+   * model writes something that ends up permanently in history, so a human reads it first. An
+   * existing draft is replaced only after confirming, since losing typed words to a misclick is
+   * worse than an extra click.
+   */
+  async function draftMessage() {
+    if (!project) return;
+    setDrafting(true);
+    try {
+      const draft = await gitApi.draftMessage(project.id);
+      setMessage(draft.message);
+      if (draft.truncated) {
+        toast.warning('The staged diff was too large to send whole', {
+          description: 'The message describes the first part of it — check it covers everything.'
+        });
+      }
+    } catch (err) {
+      toast.error(messageOf(err), { description: detailOf(err) });
+    } finally {
+      setDrafting(false);
+    }
+  }
+
+  function askDraft() {
+    if (!message.trim()) {
+      void draftMessage();
+      return;
+    }
+    setConfirm({
+      title: 'Replace your message?',
+      description: 'Drafting from the staged diff will overwrite what you have typed.',
+      files: [message.trim().split(/\r?\n/)[0] ?? ''],
+      confirmLabel: 'Replace',
+      onConfirm: () => void draftMessage()
+    });
+  }
+
+  const files = tab === 'staged' ? staged : changed;
+
   return (
-    <aside className="flex h-full min-h-0 flex-col border-l border-border-subtle bg-surface-1">
-      <header className="flex shrink-0 items-center gap-2 border-b border-border-subtle px-3 py-2">
-        <span className="text-[12.5px] font-medium tracking-wide text-text-muted uppercase">Changes</span>
-        {status?.branch ? (
-          <span className="flex min-w-0 items-center gap-1 text-[12.5px] text-text-secondary">
-            <GitBranch size={12} className="shrink-0" />
-            <span className="truncate font-mono">{status.branch}</span>
-            {status.tracking ? null : <span className="text-[12.5px] text-text-muted">(no upstream)</span>}
+    <aside className="flex h-full min-h-0 flex-col bg-surface-1">
+      <header className="shrink-0 border-b border-border-subtle px-4 pt-3 pb-2">
+        <div className="flex items-center gap-2">
+          <span className="text-[14.5px] font-semibold tracking-tight">Changes</span>
+          {hasChanges ? (
+            <span className="tabular rounded-full bg-accent-subtle px-1.5 py-0.5 text-[11.5px] font-medium text-accent-bright">
+              {staged.length + changed.length}
+            </span>
+          ) : null}
+
+          <span className="ml-auto flex items-center gap-0.5">
+            <IconButton
+              label="Fetch from remote"
+              disabled={git.busy}
+              onClick={() => void git.remote('fetch')}
+              icon={<RefreshCw size={13} className={cn(git.loading && 'animate-spin')} />}
+            />
+            <RemoteButton
+              label="Pull"
+              count={status?.behind ?? 0}
+              disabled={git.busy || !status?.tracking}
+              onClick={askPull}
+              icon={<ArrowDownToLine size={13} />}
+            />
+            <RemoteButton
+              label="Push"
+              count={status?.ahead ?? 0}
+              disabled={git.busy || !status?.branch}
+              onClick={askPush}
+              icon={<ArrowUpFromLine size={13} />}
+            />
+            <IconButton label="Git settings — not built yet" icon={<Settings size={13} />} disabled />
           </span>
-        ) : null}
-        <div className="ml-auto flex items-center gap-0.5">
-          <IconButton
-            label="Fetch from remote"
-            disabled={git.busy}
-            onClick={() => void git.remote('fetch')}
-            icon={<RefreshCw size={12} className={cn(git.loading && 'animate-spin')} />}
+        </div>
+
+        <div className="mt-2">
+          <BranchMenu
+            projectId={project.id}
+            status={status}
+            revision={revision + git.mutations}
+            onStatus={git.adoptStatus}
           />
-          <RemoteButton
-            label="Pull"
-            count={status?.behind ?? 0}
-            disabled={git.busy || !status?.tracking}
-            onClick={askPull}
-            icon={<ArrowDownToLine size={12} />}
-          />
-          <RemoteButton
-            label="Push"
-            count={status?.ahead ?? 0}
-            disabled={git.busy || !status?.branch}
-            onClick={askPush}
-            icon={<ArrowUpFromLine size={12} />}
-          />
+        </div>
+
+        <div className="mt-2.5 flex gap-1 rounded-lg bg-surface-2 p-1">
+          <TabButton active={tab === 'unstaged'} count={changed.length} onClick={() => setTab('unstaged')}>
+            Unstaged
+          </TabButton>
+          <TabButton active={tab === 'staged'} count={staged.length} onClick={() => setTab('staged')}>
+            Staged
+          </TabButton>
         </div>
       </header>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
         {git.error ? (
-          <p className="px-3 py-2 text-[12.5px] text-danger">{git.error}</p>
+          <p className="px-4 py-3 text-[13px] text-danger">{git.error}</p>
         ) : git.loading && !status ? (
-          <div className="flex flex-col gap-1.5 p-3">
-            <Skeleton className="h-6" />
-            <Skeleton className="h-6" />
+          <div className="flex flex-col gap-2 p-3">
+            <Skeleton className="h-7" />
+            <Skeleton className="h-7" />
           </div>
-        ) : !hasChanges ? (
-          <p className="px-3 py-3 text-[12.5px] text-text-muted">Working tree is clean.</p>
+        ) : files.length === 0 ? (
+          <p className="px-4 py-4 text-[13px] leading-5 text-text-muted">
+            {!hasChanges
+              ? 'Working tree is clean.'
+              : tab === 'staged'
+                ? 'Nothing staged yet. Stage a file to commit it.'
+                : 'Everything is staged.'}
+          </p>
+        ) : tab === 'staged' ? (
+          <FileList
+            files={staged}
+            selected={git.selected}
+            staged
+            onSelect={git.select}
+            groupActions={
+              <IconButton
+                label="Unstage all"
+                tone="accent"
+                disabled={git.busy}
+                onClick={() => askUnstage(staged.map((f) => f.path))}
+                icon={<Minus size={14} />}
+              />
+            }
+            rowActions={(file, isSelected) => (
+              <IconButton
+                label={`Unstage ${file.path}`}
+                tone="accent"
+                revealOnGroupHover
+                alwaysVisible={isSelected}
+                disabled={git.busy}
+                onClick={() => askUnstage([file.path])}
+                icon={<Minus size={13} />}
+              />
+            )}
+          />
         ) : (
-          <>
-            {staged.length > 0 ? (
-              <FileGroup
-                label="Staged"
-                files={staged}
-                selected={git.selected}
-                staged
-                onSelect={git.select}
-                groupActions={
-                  <IconButton
-                    label="Unstage all"
-                    tone="accent"
-                    disabled={git.busy}
-                    onClick={() => askUnstage(staged.map((f) => f.path))}
-                    icon={<Minus size={13} />}
-                  />
-                }
-                rowActions={(file, isSelected) => (
-                  <IconButton
-                    label={`Unstage ${file.path}`}
-                    tone="accent"
-                    revealOnGroupHover
-                    alwaysVisible={isSelected}
-                    disabled={git.busy}
-                    onClick={() => askUnstage([file.path])}
-                    icon={<Minus size={12} />}
-                  />
-                )}
-              />
-            ) : null}
-
-            {changed.length > 0 ? (
-              <FileGroup
-                label="Changed"
-                files={changed}
-                selected={git.selected}
-                staged={false}
-                onSelect={git.select}
-                groupActions={
-                  <>
-                    <IconButton
-                      label="Discard all changes"
-                      tone="danger"
-                      disabled={git.busy}
-                      onClick={() => askDiscard(changed.map((f) => f.path))}
-                      icon={<Undo2 size={13} />}
-                    />
-                    <IconButton
-                      label="Stage all"
-                      tone="accent"
-                      disabled={git.busy}
-                      onClick={() => askStage(changed.map((f) => f.path))}
-                      icon={<Plus size={13} />}
-                    />
-                  </>
-                }
-                rowActions={(file, isSelected) => (
-                  <>
-                    <IconButton
-                      label={`Discard ${file.path}`}
-                      tone="danger"
-                      revealOnGroupHover
-                      alwaysVisible={isSelected}
-                      disabled={git.busy}
-                      onClick={() => askDiscard([file.path])}
-                      icon={<Undo2 size={12} />}
-                    />
-                    <IconButton
-                      label={`Stage ${file.path}`}
-                      tone="accent"
-                      revealOnGroupHover
-                      alwaysVisible={isSelected}
-                      disabled={git.busy}
-                      onClick={() => askStage([file.path])}
-                      icon={<Plus size={12} />}
-                    />
-                  </>
-                )}
-              />
-            ) : null}
-          </>
+          <FileList
+            files={changed}
+            selected={git.selected}
+            staged={false}
+            onSelect={git.select}
+            groupActions={
+              <>
+                <IconButton
+                  label="Discard all changes"
+                  tone="danger"
+                  disabled={git.busy}
+                  onClick={() => askDiscard(changed.map((f) => f.path))}
+                  icon={<Undo2 size={14} />}
+                />
+                <IconButton
+                  label="Stage all"
+                  tone="accent"
+                  disabled={git.busy}
+                  onClick={() => askStage(changed.map((f) => f.path))}
+                  icon={<Plus size={14} />}
+                />
+              </>
+            }
+            rowActions={(file, isSelected) => (
+              <>
+                <IconButton
+                  label={`Discard ${file.path}`}
+                  tone="danger"
+                  revealOnGroupHover
+                  alwaysVisible={isSelected}
+                  disabled={git.busy}
+                  onClick={() => askDiscard([file.path])}
+                  icon={<Undo2 size={13} />}
+                />
+                <IconButton
+                  label={`Stage ${file.path}`}
+                  tone="accent"
+                  revealOnGroupHover
+                  alwaysVisible={isSelected}
+                  disabled={git.busy}
+                  onClick={() => askStage([file.path])}
+                  icon={<Plus size={13} />}
+                />
+              </>
+            )}
+          />
         )}
 
         {git.stashes.length > 0 ? (
-          <div className="border-t border-border-subtle px-1.5 py-1.5">
-            <p className="px-2 py-1 text-[12.5px] text-text-muted">
+          <div className="border-t border-border-subtle px-2 py-2">
+            <p className="px-2 py-1 text-[12px] text-text-muted">
               Stashes <span className="tabular">({git.stashes.length})</span>
             </p>
             {git.stashes.map((entry) => (
-              <div key={entry.ref} className="group flex items-center gap-2 rounded px-2 py-1 hover:bg-surface-2">
+              <div key={entry.ref} className="group flex items-center gap-2 rounded-md px-2 py-1 hover:bg-surface-2">
                 <span className="min-w-0 flex-1 truncate text-[12.5px] text-text-secondary" title={entry.subject}>
                   {entry.subject || entry.ref}
                 </span>
-                <span className="shrink-0 text-[12.5px] text-text-muted">{entry.when}</span>
+                <span className="shrink-0 text-[11.5px] text-text-muted">{entry.when}</span>
                 <IconButton
                   label="Pop this stash"
                   tone="accent"
                   revealOnGroupHover
                   disabled={git.busy}
                   onClick={() => askStashPop(entry.index, entry.subject || entry.ref)}
-                  icon={<ArchiveRestore size={12} />}
+                  icon={<ArchiveRestore size={13} />}
                 />
               </div>
             ))}
@@ -293,10 +367,11 @@ export function ChangesPanel({ project, revision }: ChangesPanelProps) {
       {git.selected && git.diff !== null ? (
         <div className="flex min-h-0 basis-1/2 flex-col border-t border-border-default">
           <div className="flex shrink-0 items-center gap-2 bg-surface-2 px-3 py-1.5">
-            <span className="truncate font-mono text-[12.5px]" title={git.selected.path}>
+            <FileCode2 size={13} className="shrink-0 text-text-muted" />
+            <span className="truncate font-mono text-[12px]" title={git.selected.path}>
               {git.selected.path}
             </span>
-            <span className="ml-auto shrink-0 text-[12.5px] text-text-muted">
+            <span className="ml-auto shrink-0 text-[11.5px] text-text-muted">
               {git.selected.staged ? 'staged' : 'working tree'}
             </span>
           </div>
@@ -305,40 +380,65 @@ export function ChangesPanel({ project, revision }: ChangesPanelProps) {
       ) : null}
 
       <footer className="shrink-0 border-t border-border-subtle">
+        <p className="px-3 pt-2.5 pb-1.5 text-[12px] font-medium tracking-wide text-text-muted uppercase">
+          Commit
+        </p>
         <IdentityBar projectId={project.id} />
-        <div className="p-2">
+        <div className="p-3">
+          <div className="relative mb-2.5">
           <textarea
-          value={message}
-          rows={2}
-          placeholder={
-            staged.length > 0
-              ? `Commit message for ${plural(staged.map((f) => f.path))}…`
-              : 'Stage something to commit…'
-          }
-          spellCheck={false}
-          onChange={(event) => setMessage(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
-              event.preventDefault();
-              void commit();
+            value={message}
+            rows={3}
+            placeholder={
+              staged.length > 0 ? `Message for ${plural(staged.map((f) => f.path))}…` : 'Stage something to commit…'
             }
-          }}
-            className="mb-2 block w-full resize-none rounded border border-border-default bg-surface-2 px-2 py-1.5 text-[13px] placeholder:text-text-muted focus:border-accent focus:outline-none"
+            spellCheck={false}
+            onChange={(event) => setMessage(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+                event.preventDefault();
+                void commit();
+              }
+            }}
+            className="block w-full resize-none rounded-md border border-border-default bg-surface-2 py-2 pr-10 pl-2.5 text-[13.5px] leading-5 placeholder:text-text-muted focus:border-accent focus:outline-none"
           />
+            <button
+              type="button"
+              onClick={askDraft}
+              disabled={drafting || git.busy || staged.length === 0}
+              aria-label="Draft a commit message from the staged changes"
+              title={
+                staged.length === 0
+                  ? 'Stage something first'
+                  : 'Draft a message from the staged diff (you can edit it before committing)'
+              }
+              className={cn(
+                'absolute right-1.5 bottom-1.5 flex size-7 items-center justify-center rounded-md',
+                'transition-colors duration-(--duration-fast)',
+                'text-text-muted hover:bg-surface-3 hover:text-accent-bright',
+                'disabled:pointer-events-none disabled:opacity-40'
+              )}
+            >
+              {drafting ? <Loader size={14} className="animate-spin text-accent-bright" /> : <Sparkles size={14} />}
+            </button>
+          </div>
           <div className="flex items-center gap-2">
             <Button
               variant="primary"
-              size="sm"
+              size="md"
               className="flex-1"
               disabled={git.busy || !message.trim() || staged.length === 0}
               onClick={() => void commit()}
             >
-              Commit
+              Commit changes
             </Button>
-            <Button variant="secondary" size="sm" disabled={git.busy || !hasChanges} onClick={askStash}>
-              <Archive size={12} /> Stash
+            <Button variant="secondary" size="md" disabled={git.busy || !hasChanges} onClick={askStash}>
+              <Archive size={13} /> Stash
             </Button>
           </div>
+          <p className="mt-2 text-center text-[11.5px] text-text-muted">
+            <kbd className="font-mono">Ctrl</kbd> + <kbd className="font-mono">Enter</kbd> to commit
+          </p>
         </div>
       </footer>
 
@@ -347,24 +447,54 @@ export function ChangesPanel({ project, revision }: ChangesPanelProps) {
   );
 }
 
-interface FileGroupProps {
-  label: string;
+function TabButton({
+  active,
+  count,
+  onClick,
+  children
+}: {
+  active: boolean;
+  count: number;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        'flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-[13px]',
+        'transition-colors duration-(--duration-fast)',
+        active ? 'bg-surface-3 font-medium text-text-primary' : 'text-text-secondary hover:text-text-primary'
+      )}
+    >
+      {children}
+      <span
+        className={cn(
+          'tabular rounded-full px-1.5 text-[11px]',
+          active ? 'bg-accent-subtle text-accent-bright' : 'bg-surface-3 text-text-muted'
+        )}
+      >
+        {count}
+      </span>
+    </button>
+  );
+}
+
+interface FileListProps {
   files: GitFile[];
   selected: SelectedFile | null;
   staged: boolean;
   onSelect: (file: SelectedFile) => void;
-  /** Icon buttons for the whole group, shown in the header row. */
   groupActions: ReactNode;
-  /** Icon buttons for one file, revealed on row hover. */
   rowActions: (file: GitFile, isSelected: boolean) => ReactNode;
 }
 
-function FileGroup({ label, files, selected, staged, onSelect, groupActions, rowActions }: FileGroupProps) {
+function FileList({ files, selected, staged, onSelect, groupActions, rowActions }: FileListProps) {
   return (
-    <div className="px-1.5 py-1.5">
-      <div className="flex items-center gap-1 px-2 py-1">
-        <p className="text-[12.5px] text-text-muted">
-          {label} <span className="tabular">({files.length})</span>
+    <div className="px-2 py-2">
+      <div className="flex items-center gap-1 px-2 pb-1">
+        <p className="text-[12px] text-text-muted">
+          {staged ? 'Staged files' : 'Changed files'} <span className="tabular">({files.length})</span>
         </p>
         <div className="ml-auto flex items-center gap-0.5">{groupActions}</div>
       </div>
@@ -373,12 +503,22 @@ function FileGroup({ label, files, selected, staged, onSelect, groupActions, row
         const isSelected = selected?.path === file.path && selected.staged === staged;
         return (
           <div
-            key={`${label}-${file.path}`}
+            key={file.path}
             className={cn(
-              'group flex items-center gap-1.5 rounded px-2 py-0.5',
+              'group flex items-center gap-2 rounded-md px-2 py-1',
               isSelected ? 'bg-accent-subtle' : 'hover:bg-surface-2'
             )}
           >
+            <FileCode2 size={13} className="shrink-0 text-text-muted" />
+            <button
+              onClick={() => onSelect({ path: file.path, staged })}
+              className="min-w-0 flex-1 truncate text-left font-mono text-[12.5px] text-text-secondary"
+              title={file.path}
+            >
+              {file.path}
+            </button>
+            {rowActions(file, isSelected)}
+            {/* Status letter last, like a source-control gutter: the column you scan down. */}
             <span
               className={cn(
                 'w-3 shrink-0 text-center font-mono text-[12.5px]',
@@ -388,14 +528,6 @@ function FileGroup({ label, files, selected, staged, onSelect, groupActions, row
             >
               {file.status}
             </span>
-            <button
-              onClick={() => onSelect({ path: file.path, staged })}
-              className="min-w-0 flex-1 truncate text-left font-mono text-[12.5px] text-text-secondary"
-              title={file.path}
-            >
-              {file.path}
-            </button>
-            {rowActions(file, isSelected)}
           </div>
         );
       })}
@@ -429,7 +561,7 @@ function RemoteButton({
         onClick={onClick}
         icon={icon}
       />
-      {count > 0 ? <span className="tabular -ml-0.5 text-[12.5px] text-accent-bright">{count}</span> : null}
+      {count > 0 ? <span className="tabular -ml-1 text-[11px] text-accent-bright">{count}</span> : null}
     </div>
   );
 }

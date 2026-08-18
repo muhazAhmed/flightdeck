@@ -1,14 +1,25 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import { ChevronRight, FolderGit2, MessageSquarePlus, Plus, Trash2 } from 'lucide-react';
-import type { Chat, Project } from '@shared/types';
-import { Button } from '@/shared/ui/Button';
+import {
+  ChevronRight,
+  ChevronsLeft,
+  Download,
+  Folder,
+  FolderOpen,
+  MessageSquarePlus,
+  Plus,
+  Search,
+  Settings,
+  Trash2
+} from 'lucide-react';
+import type { Chat, Project, UserInfo } from '@shared/types';
+import { IconButton } from '@/shared/ui/IconButton';
 import { Skeleton } from '@/shared/ui/Skeleton';
 import { cn } from '@/lib/cn';
-import { relativeTime, shortPath } from '@/lib/format';
+import { relativeTime } from '@/lib/format';
 import { detailOf, messageOf } from '@/lib/http';
 import { useWorkspace } from '@/store/workspace';
-import { chatsApi } from '@/features/chat/api';
+import { chatsApi, userApi } from '@/features/chat/api';
 
 interface ProjectSidebarProps {
   projects: Project[];
@@ -16,10 +27,12 @@ interface ProjectSidebarProps {
   chats: Chat[];
   runningChatIds: string[];
   collapsed: boolean;
+  onCollapse: () => void;
   onAddProject: () => void;
   onRemoveProject: (id: string) => void;
   onChatsChanged: () => void;
   onCreateChat: (projectId: string) => void;
+  onImportSession: (projectId: string) => void;
 }
 
 export function ProjectSidebar({
@@ -28,16 +41,21 @@ export function ProjectSidebar({
   chats,
   runningChatIds,
   collapsed,
+  onCollapse,
   onAddProject,
   onRemoveProject,
   onChatsChanged,
-  onCreateChat
+  onCreateChat,
+  onImportSession
 }: ProjectSidebarProps) {
   const selectedProjectId = useWorkspace((s) => s.selectedProjectId);
   const selectedChatId = useWorkspace((s) => s.selectedChatId);
   const selectProject = useWorkspace((s) => s.selectProject);
   const selectChat = useWorkspace((s) => s.selectChat);
+  const setPaletteOpen = useWorkspace((s) => s.setPaletteOpen);
+
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [query, setQuery] = useState('');
 
   // Opening a project should reveal its chats without a second click.
   useEffect(() => {
@@ -45,66 +63,107 @@ export function ProjectSidebar({
     setExpanded((current) => (current.has(selectedProjectId) ? current : new Set(current).add(selectedProjectId)));
   }, [selectedProjectId]);
 
+  // Matches name or path: with a dozen repos, "realty" and "web/Com8" are both things people
+  // reach for.
+  const visible = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    if (!needle) return projects;
+    return projects.filter(
+      (p) => p.name.toLowerCase().includes(needle) || p.path.toLowerCase().includes(needle)
+    );
+  }, [projects, query]);
+
   if (collapsed) {
     return (
-      <nav className="flex h-full w-12 flex-col items-center gap-1 border-r border-border-subtle bg-surface-1 py-2">
-        {projects.map((project) => (
-          <button
-            key={project.id}
-            title={project.name}
-            onClick={() => selectProject(project.id)}
-            className={cn(
-              'flex size-8 shrink-0 items-center justify-center rounded font-medium uppercase',
-              'transition-colors duration-[var(--duration-fast)]',
-              project.id === selectedProjectId
-                ? 'bg-accent-subtle text-accent-bright'
-                : 'text-text-secondary hover:bg-surface-2'
-            )}
-          >
-            {project.name.slice(0, 2)}
-          </button>
-        ))}
-        <button
-          title="Add project"
-          onClick={onAddProject}
-          className="mt-1 flex size-8 items-center justify-center rounded text-text-muted hover:bg-surface-2 hover:text-text-primary"
-        >
-          <Plus size={15} />
-        </button>
+      <nav className="flex h-full w-12 shrink-0 flex-col items-center gap-1 border-r border-border-subtle bg-surface-1 py-2">
+        {projects.map((project) => {
+          const running = chats.some((c) => c.projectId === project.id && runningChatIds.includes(c.id));
+          return (
+            <button
+              key={project.id}
+              title={project.name}
+              onClick={() => selectProject(project.id)}
+              className={cn(
+                'relative flex size-9 shrink-0 items-center justify-center rounded-md font-medium uppercase',
+                'transition-colors duration-(--duration-fast)',
+                project.id === selectedProjectId
+                  ? 'bg-accent-subtle text-accent-bright'
+                  : 'text-text-secondary hover:bg-surface-2'
+              )}
+            >
+              {project.name.slice(0, 2)}
+              {running ? (
+                <span className="absolute top-1 right-1 size-1.5 rounded-full bg-accent-bright" />
+              ) : null}
+            </button>
+          );
+        })}
+        <IconButton label="Add project" className="mt-1 size-9" icon={<Plus size={16} />} onClick={onAddProject} />
       </nav>
     );
   }
 
   return (
-    <nav className="flex h-full flex-col border-r border-border-subtle bg-surface-1">
-      <header className="flex items-center justify-between px-3 py-2">
-        <span className="text-[12.5px] font-medium tracking-wide text-text-muted uppercase">Projects</span>
-        <span className="tabular text-[12.5px] text-text-muted">{projects.length}</span>
+    <nav className="flex h-full flex-col bg-surface-1">
+      <header className="flex items-center gap-2 px-3 py-3">
+        <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-accent-subtle text-accent-bright">
+          <FolderOpen size={15} />
+        </span>
+        <span className="min-w-0 flex-1 truncate text-[15px] font-semibold tracking-tight">Flight Deck</span>
+        <IconButton label="Collapse sidebar (Ctrl+B)" icon={<ChevronsLeft size={15} />} onClick={onCollapse} />
       </header>
 
-      <div className="flex-1 overflow-y-auto px-1.5">
+      <div className="px-3 pb-3">
+        <div className="flex items-center gap-2 rounded-md border border-border-default bg-surface-2 px-2 focus-within:border-accent">
+          <Search size={13} className="shrink-0 text-text-muted" />
+          <input
+            value={query}
+            placeholder="Search projects…"
+            spellCheck={false}
+            onChange={(event) => setQuery(event.target.value)}
+            className="h-8 min-w-0 flex-1 bg-transparent text-[13px] placeholder:text-text-muted focus:outline-none"
+          />
+          <button
+            onClick={() => setPaletteOpen(true)}
+            title="Open the command palette"
+            className="shrink-0 rounded border border-border-subtle px-1 font-mono text-[11px] text-text-muted hover:text-text-primary"
+          >
+            Ctrl K
+          </button>
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between px-3 pb-1">
+        <span className="text-[12px] font-medium tracking-wide text-text-muted uppercase">Projects</span>
+        <IconButton label="Add project" icon={<Plus size={14} />} onClick={onAddProject} />
+      </div>
+
+      <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2">
         {loading ? (
-          <div className="flex flex-col gap-1.5 px-1.5">
-            <Skeleton className="h-7" />
-            <Skeleton className="h-7" />
-            <Skeleton className="h-7" />
+          <div className="flex flex-col gap-2 px-1">
+            <Skeleton className="h-11" />
+            <Skeleton className="h-11" />
+            <Skeleton className="h-11" />
           </div>
         ) : projects.length === 0 ? (
-          <p className="px-2 py-3 text-[12.5px] leading-4 text-text-muted">
+          <p className="px-2 py-3 text-[13px] leading-5 text-text-muted">
             No projects yet. Add any folder that is a git repository.
           </p>
+        ) : visible.length === 0 ? (
+          <p className="px-2 py-3 text-[13px] text-text-muted">Nothing matches “{query}”.</p>
         ) : (
-          projects.map((project) => {
+          visible.map((project) => {
             const projectChats = chats.filter((c) => c.projectId === project.id);
             const isOpen = expanded.has(project.id);
             const isSelected = project.id === selectedProjectId;
+            const running = projectChats.some((c) => runningChatIds.includes(c.id));
 
             return (
               <div key={project.id} className="mb-0.5">
                 <div
                   className={cn(
-                    'group flex items-center gap-1 rounded px-1.5 py-1',
-                    'transition-colors duration-[var(--duration-fast)]',
+                    'group flex items-center gap-2 rounded-md px-2 py-1.5',
+                    'transition-colors duration-(--duration-fast)',
                     isSelected ? 'bg-accent-subtle' : 'hover:bg-surface-2'
                   )}
                 >
@@ -117,45 +176,61 @@ export function ProjectSidebar({
                         return next;
                       })
                     }
-                    className="shrink-0 text-text-muted"
-                    aria-label={isOpen ? 'Collapse' : 'Expand'}
+                    aria-label={isOpen ? `Collapse ${project.name}` : `Expand ${project.name}`}
+                    className="shrink-0 text-text-muted hover:text-text-primary"
                   >
                     <ChevronRight
                       size={13}
-                      className={cn('transition-transform duration-[var(--duration-fast)]', isOpen && 'rotate-90')}
+                      className={cn('transition-transform duration-(--duration-fast)', isOpen && 'rotate-90')}
                     />
                   </button>
 
-                  <button onClick={() => selectProject(project.id)} className="flex min-w-0 flex-1 items-center gap-1.5 text-left">
-                    <FolderGit2 size={13} className={cn('shrink-0', isSelected ? 'text-accent-bright' : 'text-text-muted')} />
-                    <span className="truncate">{project.name}</span>
+                  {/* Two lines: the name you think in, and the path that disambiguates two
+                      repos with the same name in different parents. */}
+                  <button
+                    onClick={() => selectProject(project.id)}
+                    className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                  >
+                    <Folder size={14} className={cn('shrink-0', isSelected ? 'text-accent-bright' : 'text-text-muted')} />
+                    <span className="min-w-0 flex-1">
+                      <span className="flex items-center gap-1.5">
+                        <span className="truncate text-[13.5px] font-medium">{project.name}</span>
+                        {running ? <span className="size-1.5 shrink-0 rounded-full bg-accent-bright" /> : null}
+                      </span>
+                      <span className="block truncate font-mono text-[11.5px] text-text-muted">{project.path}</span>
+                    </span>
                   </button>
 
-                  <button
-                    title={`New chat in ${project.name}`}
-                    onClick={() => onCreateChat(project.id)}
-                    className="shrink-0 text-text-muted opacity-0 transition-opacity group-hover:opacity-100 hover:text-text-primary"
-                  >
-                    <MessageSquarePlus size={13} />
-                  </button>
-                  <button
-                    title={`Remove ${project.name} from the list`}
-                    onClick={() => onRemoveProject(project.id)}
-                    className="shrink-0 text-text-muted opacity-0 transition-opacity group-hover:opacity-100 hover:text-danger"
-                  >
-                    <Trash2 size={13} />
-                  </button>
+                  <span className="flex shrink-0 items-center">
+                    <IconButton
+                      label={`New chat in ${project.name}`}
+                      icon={<MessageSquarePlus size={13} />}
+                      revealOnGroupHover
+                      onClick={() => onCreateChat(project.id)}
+                    />
+                    <IconButton
+                      label={`Import an existing session for ${project.name}`}
+                      icon={<Download size={13} />}
+                      tone="accent"
+                      revealOnGroupHover
+                      onClick={() => onImportSession(project.id)}
+                    />
+                    <IconButton
+                      label={`Remove ${project.name} from the list`}
+                      icon={<Trash2 size={13} />}
+                      tone="danger"
+                      revealOnGroupHover
+                      onClick={() => onRemoveProject(project.id)}
+                    />
+                  </span>
                 </div>
 
                 {isOpen ? (
-                  <div className="ml-5 border-l border-border-subtle pl-1.5">
-                    <p className="truncate px-1.5 py-0.5 font-mono text-[12.5px] text-text-muted">
-                      {shortPath(project.path)}
-                    </p>
+                  <div className="mt-0.5 ml-6 border-l border-border-subtle pl-2">
                     {projectChats.length === 0 ? (
                       <button
                         onClick={() => onCreateChat(project.id)}
-                        className="px-1.5 py-1 text-[12.5px] text-text-muted hover:text-accent-bright"
+                        className="px-2 py-1 text-[12.5px] text-text-muted hover:text-accent-bright"
                       >
                         Start a chat
                       </button>
@@ -182,11 +257,7 @@ export function ProjectSidebar({
         )}
       </div>
 
-      <footer className="border-t border-border-subtle p-2">
-        <Button variant="secondary" size="sm" className="w-full" onClick={onAddProject}>
-          <Plus size={13} /> Add project
-        </Button>
-      </footer>
+      <SidebarFooter />
     </nav>
   );
 }
@@ -216,22 +287,59 @@ function ChatRow({
   return (
     <div
       className={cn(
-        'group flex items-center gap-1.5 rounded px-1.5 py-1',
+        'group flex items-center gap-2 rounded-md px-2 py-1',
         selected ? 'bg-accent-subtle text-text-primary' : 'text-text-secondary hover:bg-surface-2'
       )}
     >
       {running ? <span className="size-1.5 shrink-0 animate-pulse rounded-full bg-accent-bright" /> : null}
-      <button onClick={onSelect} className="min-w-0 flex-1 truncate text-left">
+      <button onClick={onSelect} className="min-w-0 flex-1 truncate text-left text-[13px]">
         {chat.title}
       </button>
-      <span className="tabular shrink-0 text-[12.5px] text-text-muted">{relativeTime(chat.lastMessageAt)}</span>
-      <button
-        title="Delete chat"
+      <span className="tabular shrink-0 text-[11.5px] text-text-muted">{relativeTime(chat.lastMessageAt)}</span>
+      <IconButton
+        label={`Delete ${chat.title}`}
+        icon={<Trash2 size={12} />}
+        tone="danger"
+        revealOnGroupHover
         onClick={() => void remove()}
-        className="shrink-0 text-text-muted opacity-0 transition-opacity group-hover:opacity-100 hover:text-danger"
-      >
-        <Trash2 size={12} />
-      </button>
+      />
     </div>
+  );
+}
+
+/**
+ * Who is using the app, from global git config, plus the entry point for settings.
+ *
+ * The settings button is deliberately inert for now: a visible, disabled affordance is honest
+ * about what exists, where a button that opens an empty page is not.
+ */
+function SidebarFooter() {
+  const [user, setUser] = useState<UserInfo | null>(null);
+
+  useEffect(() => {
+    void userApi
+      .get()
+      .then(setUser)
+      .catch(() => setUser({ name: null, email: null }));
+  }, []);
+
+  const initials = (user?.name ?? '?')
+    .split(/\s+/)
+    .map((part) => part[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase();
+
+  return (
+    <footer className="flex items-center gap-2 border-t border-border-subtle px-3 py-2.5">
+      <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-accent-subtle text-[11.5px] font-semibold text-accent-bright">
+        {initials}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-[13px]">{user?.name ?? 'No git identity'}</span>
+        <span className="block truncate text-[11.5px] text-text-muted">{user?.email ?? 'set user.email in git'}</span>
+      </span>
+      <IconButton label="Settings — not built yet" icon={<Settings size={14} />} disabled />
+    </footer>
   );
 }

@@ -24,6 +24,9 @@ export function useGitPanel(projectId: string | null, revision: number) {
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Incremented by anything that changes git state, so dependants (the branch list) can
+  // refresh without this hook needing to know they exist.
+  const [mutations, setMutations] = useState(0);
 
   // Guards against a slow diff response for a file the user has already navigated away
   // from overwriting the diff they are now looking at.
@@ -93,6 +96,7 @@ export function useGitPanel(projectId: string | null, revision: number) {
       try {
         setStatus(await action());
         setError(null);
+        setMutations((n) => n + 1);
         return true;
       } catch (err) {
         report(err);
@@ -156,6 +160,7 @@ export function useGitPanel(projectId: string | null, revision: number) {
         const result = await gitApi.commit(projectId, message);
         setStatus(result.status);
         setSelected(null);
+        setMutations((n) => n + 1);
         const { changes, insertions, deletions } = result.summary;
         toast.success(`Committed ${result.commit.slice(0, 7)}`, {
           description: `${changes} file${changes === 1 ? '' : 's'} · +${insertions} −${deletions}`
@@ -232,6 +237,14 @@ export function useGitPanel(projectId: string | null, revision: number) {
     commit,
     stash,
     stashPop,
-    remote
+    remote,
+    mutations,
+    /** For a checkout: the branch routes already return the post-switch status, so adopt it
+     *  rather than firing another read. */
+    adoptStatus: (next: GitStatus) => {
+      setStatus(next);
+      setSelected(null);
+      setMutations((n) => n + 1);
+    }
   };
 }

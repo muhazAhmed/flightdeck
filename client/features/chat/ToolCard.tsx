@@ -43,13 +43,13 @@ export function ToolCard({ tool }: { tool: ToolInvocation }) {
         <Collapsible.Trigger
           className={cn(
             'flex w-full items-center gap-2 px-2.5 py-1.5 text-left',
-            'transition-colors duration-[var(--duration-fast)] hover:bg-surface-3'
+            'transition-colors duration-(--duration-fast) hover:bg-surface-3'
           )}
         >
           <ChevronRight
             size={13}
             className={cn(
-              'shrink-0 text-text-muted transition-transform duration-[var(--duration-fast)]',
+              'shrink-0 text-text-muted transition-transform duration-(--duration-fast)',
               open && 'rotate-90'
             )}
           />

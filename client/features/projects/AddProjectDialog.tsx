@@ -60,7 +60,7 @@ export function AddProjectDialog({ open, onOpenChange, onAdd }: AddProjectDialog
         <Dialog.Content
           className={cn(
             'fixed top-1/2 left-1/2 flex max-h-[80vh] w-[min(640px,92vw)] -translate-x-1/2 -translate-y-1/2 flex-col',
-            'rounded-lg border border-border-default bg-surface-1 shadow-[var(--shadow-popover)]'
+            'rounded-lg border border-border-default bg-surface-1 shadow-(--shadow-popover)'
           )}
         >
           <header className="border-b border-border-subtle px-4 py-3">

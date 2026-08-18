@@ -85,7 +85,7 @@ and looks like a foreign app inside yours. See DECISIONS.md.
 
 | Role | Font | Size / line-height |
 |---|---|---|
-| UI | **Ubuntu** (400 / 500 / 700) | 14px / 21px default, 12.5px / 16px for metadata |
+| UI | **Ubuntu** (400 / 500 / 700) | 14.5px / 22px default, 12.5–13px for metadata, 11.5px for the quietest labels |
 | Headings | Ubuntu 500–700 | 15px panel titles, 20px page titles |
 | Code, diffs, terminal | **JetBrains Mono Variable** | 12.5px / 18px |
 
@@ -107,8 +107,9 @@ unused.
 
 **Type tuning that matters at this size:**
 
-- `font-size: 14px` / `line-height: 21px` — the extra leading is what makes a wall of
-  streamed text readable for an hour.
+- `font-size: 14.5px` / `line-height: 22px` — the extra leading is what makes a wall of
+  streamed text readable for an hour. Secondary text sits at 12.5–13px rather than the 11–12px
+  a denser face could carry.
 - `letter-spacing: 0` — Ubuntu is already optically wide; negative tracking closes its
   apertures and makes it muddier at this size.
 - **Identifiers go in the mono face.** Ubuntu has no disambiguation variants, so anywhere
@@ -155,6 +156,22 @@ Resizable and collapsible, three panels, widths persisted to `state.json`.
   count.
 - The Changes panel stays visible while the agent works. Watching files appear as it
   edits is half the point of the tool.
+
+**Panel contents.**
+
+- **Left** — a titled sidebar: product name, project search (matches name or path), the project
+  list with each repo's path on a second line, and a footer showing your global git identity plus
+  the settings entry point. Projects expand to their chats.
+- **Middle** — chat. Header carries the title, the project path, the quota chip, the model picker
+  and the permission mode. Empty state offers suggestion cards that fill the input with real,
+  editable prompts.
+- **Right** — source control: branch menu, remote actions with commit counts, **Staged / Unstaged
+  tabs** with counts, the file list, the diff, and a commit block that leads with the identity the
+  commit will carry.
+
+**Unbuilt affordances are visible and disabled**, never hidden and never fake: the settings
+buttons render greyed with a "not built yet" tooltip. A disabled control is honest about scope; a
+button that opens an empty page is not.
 
 ### Keyboard
 

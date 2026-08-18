@@ -39,7 +39,7 @@ export function IconButton({
           aria-label={label}
           className={cn(
             'inline-flex size-5 shrink-0 items-center justify-center rounded',
-            'transition-colors duration-[var(--duration-fast)]',
+            'transition-colors duration-(--duration-fast)',
             'disabled:pointer-events-none disabled:opacity-40',
             revealOnGroupHover && !alwaysVisible && 'opacity-0 group-hover:opacity-100 focus-visible:opacity-100',
             TONES[tone],
@@ -54,7 +54,7 @@ export function IconButton({
         <Tooltip.Content
           side="top"
           sideOffset={4}
-          className="z-50 rounded border border-border-default bg-surface-3 px-2 py-1 text-[12.5px] text-text-primary shadow-[var(--shadow-popover)]"
+          className="z-50 rounded border border-border-default bg-surface-3 px-2 py-1 text-[12.5px] text-text-primary shadow-(--shadow-popover)"
         >
           {label}
           <Tooltip.Arrow className="fill-[var(--surface-3)]" />

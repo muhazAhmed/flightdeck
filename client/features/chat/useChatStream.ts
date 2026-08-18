@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { RateLimitEvent, UiEvent } from '@shared/types';
+import type { RateLimitEvent, SessionEvent, UiEvent } from '@shared/types';
 
 export interface ToolInvocation {
   id: string;
@@ -30,9 +30,18 @@ interface StreamState {
   error: { message: string; detail?: string } | null;
   summary: RunSummary | null;
   rateLimit: RateLimitEvent | null;
+  /** The handshake from the running CLI: model, cwd, tools it actually has. */
+  session: SessionEvent | null;
 }
 
-const IDLE: StreamState = { blocks: [], running: false, error: null, summary: null, rateLimit: null };
+const IDLE: StreamState = {
+  blocks: [],
+  running: false,
+  error: null,
+  summary: null,
+  rateLimit: null,
+  session: null
+};
 
 /**
  * Fold events into transcript state.
@@ -43,7 +52,7 @@ const IDLE: StreamState = { blocks: [], running: false, error: null, summary: nu
  */
 function reduce(previous: StreamState, events: UiEvent[]): StreamState {
   const blocks = [...previous.blocks];
-  let { running, error, summary, rateLimit } = previous;
+  let { running, error, summary, rateLimit, session } = previous;
 
   for (const event of events) {
     switch (event.type) {
@@ -101,12 +110,14 @@ function reduce(previous: StreamState, events: UiEvent[]): StreamState {
         };
         break;
       case 'session':
+        session = event;
+        break;
       case 'turn_end':
         break;
     }
   }
 
-  return { blocks, running, error, summary, rateLimit };
+  return { blocks, running, error, summary, rateLimit, session };
 }
 
 /**

@@ -50,11 +50,11 @@
     background: var(--bg-base);
     color: var(--text-primary);
     font-family: var(--font-ui);
-    /* 14/21 rather than the 13.5/20 this started at: Ubuntu needs the extra size to hold
-     * its shape, and the extra leading is what makes a wall of streamed text readable for
-     * hours. */
-    font-size: 14px;
-    line-height: 21px;
+    /* 14.5/22. Ubuntu needs size to hold its shape, and the extra leading is what makes a
+     * wall of streamed text readable for hours. Secondary text sits at 12.5–13px rather than
+     * the 11–12px a denser face could carry. */
+    font-size: 14.5px;
+    line-height: 22px;
     /* Zero tracking: Ubuntu is already optically wide, and negative tracking closes its
      * apertures and makes it muddier at this size — the opposite of what helps. */
     letter-spacing: 0;

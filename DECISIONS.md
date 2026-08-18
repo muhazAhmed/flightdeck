@@ -384,3 +384,155 @@ Changing face is now a two-line edit: `--font-ui` in `tokens.css` and the import
 
 *Lesson worth keeping:* when two explanations fit, fix the one you can verify first and let
 the user judge the subjective one. Changing both at once made it unclear which had helped.
+
+---
+
+### 2026-08-18 · Branch operations, and where the guard belongs
+
+Checkout, create, delete — human-initiated like commit and push, and nothing agent-reachable
+touches them. The asymmetry between them is deliberate:
+
+- **Checkout refuses on a dirty tree.** git would happily carry uncommitted edits onto the
+  other branch, which is precisely how work ends up committed to the wrong one. Refused with
+  the reason; stash is one button away.
+- **Create carries the working tree**, on purpose. "This shouldn't be on main" is a thought
+  people have mid-edit, and `checkout -b` bringing the changes along is the whole point.
+- **Delete uses `-d`**, so git refuses a branch whose commits exist nowhere else. That refusal
+  surfaces as a second, explicit force-delete confirmation rather than a silent retry.
+- **A remote branch checks out with `--track`.** Plain `checkout origin/x` would leave a
+  detached HEAD — a state most people cannot get out of without help.
+
+**A bug caught by testing against a real repository:** local and remote were separated by the
+*short* refname, but `%(refname:short)` renders a remote branch as `origin/main`, which is
+shape-identical to a local branch containing a slash. `origin/main` therefore appeared in the
+local list and would have been offered as a direct checkout — detaching HEAD. The format now
+requests both `%(refname)` and `%(refname:short)`; the full one classifies, the short one is
+displayed. Pinned with a test whose name says what it prevents.
+
+Also worth recording: an expectation of mine was wrong during that testing. Deleting a branch
+I assumed was unmerged succeeded, because its commits were reachable from another branch I had
+created off it. git was right; the test was written from a mistaken mental model.
+
+---
+
+### 2026-08-18 · Sessions started elsewhere can be imported
+
+Claude Code writes one JSONL transcript per session under
+`~/.claude/projects/<encoded-cwd>/<sessionId>.jsonl` regardless of who started it — this app,
+the IDE extension, or a bare terminal. History replay already reads that format, so adopting a
+foreign session costs almost nothing: record its id as a chat and its transcript renders like
+any other.
+
+Verified against the session that built this project: 6 MB transcript, 38 prompts, 318 tool
+calls, replayed in 142 ms into a 1 MB payload.
+
+**This does not tie the project to one machine.** The location comes from `homedir()` plus the
+project's own path, so anyone who clones Flight Deck gets the feature over their own sessions.
+The directory layout is undocumented (read off disk), so a CLI change degrades it to "no
+sessions found" rather than breaking anything.
+
+**The limitation is stated, not hidden.** Two clients cannot safely write to one session id.
+A transcript touched in the last three minutes is flagged as probably open elsewhere: importing
+and reading it is safe, sending a message while it is live elsewhere is not. That is a
+heuristic on file mtime — there is no liveness signal to consult — and it is labelled as one.
+
+Importing sets `lastMessageAt` from the file's mtime, which makes the next message use
+`--resume` instead of trying to claim an id the CLI already knows.
+
+*Known rough edge:* a transcript this size renders ~800 blocks, and the chat list is not
+virtualised yet. Collapsed tool cards keep it cheap, but a very long session is the case that
+will eventually need `@tanstack/react-virtual` as DESIGN.md already prescribes.
+
+---
+
+### 2026-08-18 · Following the mockup, selectively
+
+A reference design was supplied. What was adopted, and what was not, on purpose:
+
+**Taken.** Staged / Unstaged as tabs with counts — stacked groups made a long changed-list push
+staged files off-screen, and the tab bar states both counts at a glance. Two-line project rows,
+because a repo's path is what distinguishes `Com8-Reality` from `com8_realty_server`. Project
+search. A model picker in the chat header. A sidebar footer with the git identity. A real empty
+state with suggestion cards. Larger type: 14.5/22, with secondary text at 12.5–13px.
+
+**Declined.** The violet accent (ours stays cyan — see the diff-colour entry). The theme
+dropdown, at the user's instruction. The "AI Commit Assistant · Learn more" promo card, which is
+marketing furniture in a single-user local tool.
+
+**Corrected.** The mockup's model label read "Claude 3.5 Sonnet", which is long superseded. The
+picker offers Opus 5, Sonnet 5 and Haiku 4.5 by full id, plus "Default" meaning whatever the CLI
+is configured for. A pinned id is passed as `--model`; verified end to end — pinning Haiku had
+the session handshake report `claude-haiku-4-5` back.
+
+**Suggestion cards are real prompts, not topics.** Each fills the input with an instruction the
+agent can act on ("read the staged diff and write a commit message… do not run git commit") and
+leaves it editable rather than sending it. A card that types a subject line and stops makes the
+user do the work twice.
+
+**Unbuilt UI is disabled, not absent and not fake.** The settings buttons in the sidebar footer,
+the chat header and the Changes header all render greyed with a "not built yet" tooltip. Showing
+where something will live is honest; a button that opens an empty page is not.
+
+---
+
+### 2026-08-18 · Drafted commit messages, and why they never commit
+
+A sparkle button in the message box reads `git diff --staged` and writes a message. The design
+constraints matter more than the feature:
+
+- **It fills the box, it does not commit.** This is the one place in the app where a model writes
+  something that lands permanently in history. A human reads it first, every time. Replacing text
+  you already typed asks for confirmation.
+- **The diff is sent inline, and write tools are denied** (`--disallowedTools Edit Write
+  NotebookEdit Bash Task`, `--max-turns 1`). The prompt contains everything needed to answer, so
+  a tool call would mean the model doing something nobody asked for.
+- **Truncation is disclosed twice** — to the model ("do not claim it is complete") and to the user
+  as a warning toast. A 60k-character cap keeps a megabyte refactor from being pointless to send;
+  a silently shortened diff would produce a confidently wrong message.
+- **It runs in the project directory**, so the repository's own `CLAUDE.md` and recent history can
+  shape the style (Conventional Commits, for instance) without us hardcoding a convention.
+- Fenced output is stripped. Models occasionally wrap the answer in backticks despite being told
+  not to, and backticks in a commit subject are worse than an extra guard.
+
+Verified on a real staged diff: subject `Issue unique expiring session tokens on login` (45
+chars), with a body explaining that the previous static token was forgeable — the *why*, not a
+restatement of the diff.
+
+**A bug found while verifying:** the reported model was always null. The CLI's JSON result has no
+top-level `model` field — the model is a KEY of `modelUsage` (`"claude-opus-5[1m]"`). Reading a
+field that does not exist made the UI quietly claim it did not know, which is the kind of small
+lie that erodes trust in everything else on screen.
+
+**Cost, stated honestly:** each draft is a fresh one-shot session, so it pays full prompt-cache
+creation — around $0.26–0.34 of *notional* cost, and a real bite out of a rate-limit window even
+though a subscription is not billed per token. The route accepts a `model`, so pinning Haiku for
+drafts is a one-line change if the default proves too expensive in practice.
+
+---
+
+### 2026-08-18 · The prompt goes on stdin, never on argv
+
+Commit-message drafting returned a 500 the first time it met a real repository. Cause: the prompt
+was passed as a command-line argument, and Windows caps a command line at ~32,767 characters. The
+staged diff in this project was **164,385 characters**; even against the original 60k cap the
+prompt sailed past the limit and `spawn` failed with `ENAMETOOLONG` before the model was ever
+reached.
+
+Reproduced directly — a 40k argv prompt fails with `ENAMETOOLONG`, an 80k prompt on **stdin**
+succeeds. `claude -p` with no prompt argument reads from stdin, which has no such limit, so the
+prompt now goes there and the cap rose to 120k characters (kept only because context costs money,
+not because of any platform limit).
+
+Verified on the exact input that failed: 164k staged diff, 11 seconds, an accurate message
+describing branch management, session import and the drafting feature itself, correctly flagged as
+`truncated`.
+
+**Why my own testing missed it.** I verified against a purpose-built scratch repo whose staged diff
+was about a kilobyte. The failure needed a *realistic* diff, and a small fixture cannot produce
+one. Pinned now by a test that asserts the prompt never appears in argv at all, rather than
+asserting anything about size — the size is incidental, putting content on a command line is the
+actual mistake.
+
+This is the same class of error as the earlier `--verbose` and `GIT_ASKPASS` bugs: everything
+typechecked, the unit tests passed, and the defect only appeared when the code met real data on a
+real machine.

@@ -1,13 +1,14 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
-import { Gauge, Plus } from 'lucide-react';
-import type { Chat, PermissionMode, Project } from '@shared/types';
+import { Plus } from 'lucide-react';
+import type { Chat, Project } from '@shared/types';
 import { Button } from '@/shared/ui/Button';
 import { EmptyState } from '@/shared/ui/EmptyState';
-import { cn } from '@/lib/cn';
-import { clockTime, duration } from '@/lib/format';
+import { duration } from '@/lib/format';
 import { detailOf, messageOf } from '@/lib/http';
 import { chatsApi } from './api';
+import { ChatEmptyState } from './ChatEmptyState';
+import { ChatHeader } from './ChatHeader';
 import { PromptInput } from './PromptInput';
 import { ToolCard } from './ToolCard';
 import { useChatStream } from './useChatStream';
@@ -20,16 +21,11 @@ interface ChatPanelProps {
   onRunStateChange: (running: boolean) => void;
 }
 
-const MODES: PermissionMode[] = ['acceptEdits', 'plan', 'bypassPermissions'];
-
-const MODE_LABELS: Record<PermissionMode, string> = {
-  acceptEdits: 'accept edits',
-  plan: 'plan only',
-  bypassPermissions: 'bypass all'
-};
-
 export function ChatPanel({ project, chat, onCreateChat, onChatChanged, onRunStateChange }: ChatPanelProps) {
-  const { blocks, running, error, summary, rateLimit, send, stop, hydrate } = useChatStream(chat?.id ?? null);
+  const { blocks, running, error, summary, rateLimit, session, send, stop, hydrate } = useChatStream(chat?.id ?? null);
+  // Lets a suggestion card put text in the input rather than sending it blind, so it can be
+  // edited first.
+  const [draft, setDraft] = useState<string | null>(null);
   const scroller = useRef<HTMLDivElement>(null);
   const pinnedToBottom = useRef(true);
   const [replaying, setReplaying] = useState(false);
@@ -99,7 +95,13 @@ export function ChatPanel({ project, chat, onCreateChat, onChatChanged, onRunSta
 
   return (
     <section className="flex h-full min-w-0 flex-col bg-surface-1">
-      <ChatHeader chat={chat} project={project} rateLimit={rateLimit} onChatChanged={onChatChanged} />
+      <ChatHeader
+        chat={chat}
+        project={project}
+        activeModel={session?.model ?? null}
+        rateLimit={rateLimit}
+        onChatChanged={onChatChanged}
+      />
 
       <div
         ref={scroller}
@@ -114,10 +116,7 @@ export function ChatPanel({ project, chat, onCreateChat, onChatChanged, onRunSta
         ) : null}
 
         {blocks.length === 0 && !running && !replaying ? (
-          <p className="py-8 text-center text-[12.5px] text-text-muted">
-            Ask for a change, a review, or an explanation. Files are edited in{' '}
-            <span className="font-mono">{project.name}</span> and nothing is committed for you.
-          </p>
+          <ChatEmptyState project={project} onPick={setDraft} />
         ) : null}
 
         <div className="mx-auto flex max-w-3xl flex-col gap-4">
@@ -148,70 +147,14 @@ export function ChatPanel({ project, chat, onCreateChat, onChatChanged, onRunSta
         </div>
       </div>
 
-      <PromptInput running={running} onSend={send} onStop={stop} />
+      <PromptInput
+        running={running}
+        draft={draft}
+        onDraftConsumed={() => setDraft(null)}
+        onSend={send}
+        onStop={stop}
+      />
     </section>
-  );
-}
-
-function ChatHeader({
-  chat,
-  project,
-  rateLimit,
-  onChatChanged
-}: {
-  chat: Chat;
-  project: Project;
-  rateLimit: { rateLimitType: string | null; resetsAt: number | null } | null;
-  onChatChanged: (chat: Chat) => void;
-}) {
-  const [mode, setMode] = useState<PermissionMode>(chat.permissionMode);
-
-  useEffect(() => setMode(chat.permissionMode), [chat.permissionMode]);
-
-  async function changeMode(next: PermissionMode) {
-    setMode(next);
-    try {
-      onChatChanged(await chatsApi.setMode(chat.id, next));
-    } catch (err) {
-      setMode(chat.permissionMode);
-      toast.error(messageOf(err), { description: detailOf(err) });
-    }
-  }
-
-  return (
-    <header className="flex items-center gap-3 border-b border-border-subtle px-3 py-2">
-      <div className="min-w-0">
-        <h2 className="truncate font-medium">{chat.title}</h2>
-        <p className="truncate font-mono text-[12.5px] text-text-muted">{project.path}</p>
-      </div>
-
-      <div className="ml-auto flex items-center gap-2">
-        {rateLimit?.resetsAt ? (
-          <span
-            title={`${rateLimit.rateLimitType ?? 'quota'} window resets at ${clockTime(rateLimit.resetsAt)}`}
-            className="flex items-center gap-1.5 rounded border border-border-subtle px-2 py-0.5 text-[12.5px] text-text-secondary"
-          >
-            <Gauge size={12} />
-            <span className="tabular">{clockTime(rateLimit.resetsAt)}</span>
-          </span>
-        ) : null}
-
-        <select
-          value={mode}
-          onChange={(event) => void changeMode(event.target.value as PermissionMode)}
-          className={cn(
-            'h-6 rounded border bg-surface-2 px-1.5 text-[12.5px] text-text-primary',
-            mode === 'bypassPermissions' ? 'border-warn text-warn' : 'border-border-default'
-          )}
-        >
-          {MODES.map((value) => (
-            <option key={value} value={value}>
-              {MODE_LABELS[value]}
-            </option>
-          ))}
-        </select>
-      </div>
-    </header>
   );
 }
 

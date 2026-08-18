@@ -5,6 +5,27 @@
 
 export type PermissionMode = 'acceptEdits' | 'plan' | 'bypassPermissions';
 
+/**
+ * Models offered in the picker. Ids are passed straight to `claude --model`, which also
+ * accepts aliases — the full ids are used so a chat pins one model rather than drifting when
+ * an alias moves.
+ *
+ * Omitting a model means the CLI's own default, which is what most chats should use.
+ */
+export interface ModelOption {
+  id: string;
+  label: string;
+  /** One line on when to reach for it. */
+  hint: string;
+}
+
+export const MODEL_OPTIONS: ModelOption[] = [
+  { id: '', label: 'Default', hint: 'Whatever your CLI is configured to use' },
+  { id: 'claude-opus-5', label: 'Opus 5', hint: 'Most capable — hard refactors, unfamiliar code' },
+  { id: 'claude-sonnet-5', label: 'Sonnet 5', hint: 'Faster and cheaper for well-specified work' },
+  { id: 'claude-haiku-4-5', label: 'Haiku 4.5', hint: 'Quick edits and mechanical changes' }
+];
+
 export interface Project {
   id: string;
   name: string;
@@ -25,8 +46,16 @@ export interface Chat {
   /** The `--session-id` UUID handed to the CLI. Also the transcript's identity. */
   sessionId: string;
   permissionMode: PermissionMode;
+  /** Empty or absent means the CLI's default model. */
+  model?: string;
   createdAt: string;
   lastMessageAt: string | null;
+}
+
+/** Whoever git says you are, machine-wide. Shown in the sidebar footer. */
+export interface UserInfo {
+  name: string | null;
+  email: string | null;
 }
 
 /** Who a commit in a given repository would be attributed to, and where that came from. */
@@ -48,6 +77,18 @@ export interface SavedIdentity {
 export interface IdentityState {
   current: GitIdentity;
   saved: SavedIdentity[];
+}
+
+/** A Claude Code session found on disk that Flight Deck has not adopted yet. */
+export interface DiscoveredSession {
+  sessionId: string;
+  /** The opening human prompt, for recognising which conversation this is. */
+  firstPrompt: string | null;
+  sizeBytes: number;
+  modifiedAt: string;
+  /** Touched in the last few minutes, so probably open in another client. A heuristic —
+   *  there is no reliable liveness signal — and presented as one. */
+  active: boolean;
 }
 
 export interface AppState {
@@ -164,6 +205,42 @@ export interface SkippedPath {
 export interface StageResult {
   status: GitStatus;
   skipped: SkippedPath[];
+}
+
+export interface BranchInfo {
+  name: string;
+  current: boolean;
+  /** Upstream in short form (`origin/main`), or null when the branch is local-only. */
+  upstream: string | null;
+  /** Subject of the branch's last commit — the fastest way to tell branches apart. */
+  subject: string;
+  /** Relative commit date, as git formats it. */
+  when: string;
+}
+
+export interface BranchList {
+  current: string | null;
+  local: BranchInfo[];
+  /** Short remote refs (`origin/feature-x`), excluding `origin/HEAD`. */
+  remote: string[];
+}
+
+/** Result of a branch mutation: the summary, the new status, and the refreshed list. */
+export interface BranchResult {
+  summary: string;
+  status: GitStatus | null;
+  branches: BranchList;
+}
+
+/** A drafted commit message. Always a suggestion — it lands in the message box for editing and
+ *  never triggers a commit. */
+export interface CommitMessageDraft {
+  message: string;
+  /** True when the staged diff was too large to send whole, so the message describes a sample. */
+  truncated: boolean;
+  /** Notional API-equivalent cost, not money billed on a subscription. */
+  costUsd: number | null;
+  model: string | null;
 }
 
 /** Result of fetch / pull / push. `summary` is git's own human-readable output. */

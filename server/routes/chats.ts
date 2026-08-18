@@ -42,9 +42,15 @@ export async function chatRoutes(app: FastifyInstance): Promise<void> {
   });
 
   app.post<{
-    Body: { projectId?: string; title?: string; parentChatId?: string | null; permissionMode?: PermissionMode };
+    Body: {
+      projectId?: string;
+      title?: string;
+      parentChatId?: string | null;
+      permissionMode?: PermissionMode;
+      model?: string;
+    };
   }>('/api/chats', async (req, reply) => {
-    const { projectId, title, parentChatId, permissionMode } = req.body ?? {};
+    const { projectId, title, parentChatId, permissionMode, model } = req.body ?? {};
     if (!projectId) return badRequest(reply, 'A projectId is required.');
     const project = state.findProject(projectId);
     if (!project) return notFound(reply, 'No such project.');
@@ -64,6 +70,7 @@ export async function chatRoutes(app: FastifyInstance): Promise<void> {
         // The CLI requires a real UUID here, and it doubles as the transcript's identity.
         sessionId: randomUUID(),
         permissionMode: permissionMode ?? project.defaultPermissionMode,
+        model: model?.trim() || undefined,
         createdAt: new Date().toISOString(),
         lastMessageAt: null
       };
@@ -72,10 +79,11 @@ export async function chatRoutes(app: FastifyInstance): Promise<void> {
     });
   });
 
-  app.patch<{ Params: { id: string }; Body: { title?: string; permissionMode?: PermissionMode } }>(
-    '/api/chats/:id',
-    async (req, reply) => {
-      const { title, permissionMode } = req.body ?? {};
+  app.patch<{
+    Params: { id: string };
+    Body: { title?: string; permissionMode?: PermissionMode; model?: string };
+  }>('/api/chats/:id', async (req, reply) => {
+      const { title, permissionMode, model } = req.body ?? {};
       if (permissionMode && !PERMISSION_MODES.includes(permissionMode)) {
         return badRequest(reply, `Unknown permission mode: ${permissionMode}`);
       }
@@ -84,11 +92,12 @@ export async function chatRoutes(app: FastifyInstance): Promise<void> {
         if (!chat) return null;
         if (title?.trim()) chat.title = title.trim();
         if (permissionMode) chat.permissionMode = permissionMode;
+        // An empty string is meaningful here: it clears the pin back to the CLI default.
+        if (model !== undefined) chat.model = model.trim() || undefined;
         return chat;
       });
       return updated ?? notFound(reply, 'No such chat.');
-    }
-  );
+  });
 
   app.delete<{ Params: { id: string } }>('/api/chats/:id', async (req, reply) => {
     if (!state.findChat(req.params.id)) return notFound(reply, 'No such chat.');
