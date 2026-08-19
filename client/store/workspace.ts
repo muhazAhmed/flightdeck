@@ -12,6 +12,8 @@ interface WorkspaceState {
   changesCollapsed: boolean;
   paletteOpen: boolean;
   settingsOpen: boolean;
+  /** The cross-project overview. Exclusive with the workspace, like settings. */
+  deckOpen: boolean;
   terminalOpen: boolean;
 
   selectProject: (projectId: string | null) => void;
@@ -20,6 +22,8 @@ interface WorkspaceState {
   toggleChanges: () => void;
   setPaletteOpen: (open: boolean) => void;
   setSettingsOpen: (open: boolean) => void;
+  setDeckOpen: (open: boolean) => void;
+  toggleDeck: () => void;
   toggleTerminal: () => void;
   setTerminalOpen: (open: boolean) => void;
 }
@@ -31,6 +35,7 @@ export const useWorkspace = create<WorkspaceState>((set) => ({
   changesCollapsed: false,
   paletteOpen: false,
   settingsOpen: false,
+  deckOpen: false,
   terminalOpen: false,
 
   // Changing project always clears the chat: a chat id from another project would point
@@ -40,7 +45,14 @@ export const useWorkspace = create<WorkspaceState>((set) => ({
   toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
   toggleChanges: () => set((s) => ({ changesCollapsed: !s.changesCollapsed })),
   setPaletteOpen: (paletteOpen) => set({ paletteOpen }),
-  setSettingsOpen: (settingsOpen) => set({ settingsOpen }),
+  // Settings and the deck are mutually exclusive: each takes the whole pane, and leaving one open
+  // behind the other gives the user two "back" affordances that disagree. Closing one never opens the
+  // other, so both writes are spelled out rather than computed.
+  setSettingsOpen: (settingsOpen) =>
+    set((s) => (settingsOpen ? { settingsOpen: true, deckOpen: false } : { ...s, settingsOpen: false })),
+  setDeckOpen: (deckOpen) =>
+    set((s) => (deckOpen ? { deckOpen: true, settingsOpen: false } : { ...s, deckOpen: false })),
+  toggleDeck: () => set((s) => ({ deckOpen: !s.deckOpen, settingsOpen: false })),
   toggleTerminal: () => set((s) => ({ terminalOpen: !s.terminalOpen })),
   setTerminalOpen: (terminalOpen) => set({ terminalOpen })
 }));

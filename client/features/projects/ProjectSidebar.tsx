@@ -10,6 +10,7 @@ import {
   Plus,
   Search,
   Settings,
+  LayoutGrid,
   SquareTerminal,
   Trash2
 } from 'lucide-react';
@@ -57,6 +58,8 @@ export function ProjectSidebar({
   const setSettingsOpen = useWorkspace((s) => s.setSettingsOpen);
   const terminalOpen = useWorkspace((s) => s.terminalOpen);
   const toggleTerminal = useWorkspace((s) => s.toggleTerminal);
+  const deckOpen = useWorkspace((s) => s.deckOpen);
+  const setDeckOpen = useWorkspace((s) => s.setDeckOpen);
 
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [query, setQuery] = useState('');
@@ -104,8 +107,14 @@ export function ProjectSidebar({
         })}
         <IconButton label="Add project" className="mt-1 size-9" icon={<Plus size={16} />} onClick={onAddProject} />
         <IconButton
+          label="Deck — every project at once (Ctrl+Shift+D)"
+          className={cn('mt-auto size-9', deckOpen && 'bg-accent-subtle text-accent-bright')}
+          icon={<LayoutGrid size={16} />}
+          onClick={() => setDeckOpen(!deckOpen)}
+        />
+        <IconButton
           label="Terminal (Ctrl+J)"
-          className={cn('mt-auto size-9', terminalOpen && 'bg-accent-subtle text-accent-bright')}
+          className={cn('size-9', terminalOpen && 'bg-accent-subtle text-accent-bright')}
           icon={<SquareTerminal size={16} />}
           onClick={toggleTerminal}
         />
@@ -274,6 +283,29 @@ export function ProjectSidebar({
           })
         )}
       </div>
+
+      {/* The deck is the way back out to everything, so it sits with the other constant tools rather
+          than behind a menu. */}
+      <button
+        onClick={() => setDeckOpen(!deckOpen)}
+        title="Deck — every project at once (Ctrl+Shift+D)"
+        className={cn(
+          'mx-2 mb-1 flex items-center gap-2.5 rounded-md px-2 py-2 text-left text-[13.5px]',
+          'transition-colors duration-(--duration-fast)',
+          deckOpen
+            ? 'bg-accent-subtle text-text-primary'
+            : 'text-text-secondary hover:bg-surface-2 hover:text-text-primary'
+        )}
+      >
+        <LayoutGrid
+          size={15}
+          className={cn('shrink-0', deckOpen ? 'text-accent-bright' : 'text-text-muted')}
+        />
+        <span className="min-w-0 flex-1 truncate">Deck</span>
+        <span className="shrink-0 rounded border border-border-subtle px-1 font-mono text-[11px] text-text-muted">
+          Ctrl ⇧ D
+        </span>
+      </button>
 
       {/* Above the profile: a tool you reach for constantly should not be buried in settings. */}
       <button

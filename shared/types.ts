@@ -179,6 +179,39 @@ export const DEFAULT_SETTINGS: Settings = {
   lastProjectId: null
 };
 
+// ─── Deck (cross-project overview) ───────────────────────────────────────
+
+/**
+ * One project's state, as the deck shows it.
+ *
+ * Everything here is answerable without an agent: git for the branch and counts, the filesystem for
+ * how long work has been sitting, and Flight Deck's own chat records for when an agent last ran.
+ */
+export interface ProjectOverview {
+  projectId: string;
+  name: string;
+  path: string;
+  /** The folder is gone or is no longer a repository. Everything below is then null. */
+  missing: boolean;
+  branch: string | null;
+  tracking: string | null;
+  ahead: number;
+  behind: number;
+  stagedCount: number;
+  unstagedCount: number;
+  untrackedCount: number;
+  /** Subject and time of HEAD, so a card says what was last done here. */
+  lastCommitSubject: string | null;
+  lastCommitAt: string | null;
+  /** ISO time of the OLDEST uncommitted change — how long work has been sitting, not when you last
+   *  saved. Null when the tree is clean. */
+  dirtySince: string | null;
+  /** ISO time of the most recent message in any chat for this project, or null if never run. */
+  lastAgentRunAt: string | null;
+  /** git's own words when a repository could not be read. */
+  error: string | null;
+}
+
 /** What Flight Deck has written outside your repositories, for the Privacy section. */
 export interface StorageUsage {
   stateFile: string;

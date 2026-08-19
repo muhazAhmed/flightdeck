@@ -1032,3 +1032,46 @@ an error — the thing you asked for worked. It has its own `fetching` flag rath
 because a slow network must not disable the menu you just used, and the branch chip shows a spinner so
 the wait is visible.
 
+## The deck, and what actually differentiates this tool
+
+Fair question from the user: everything built so far is VS Code in a browser tab. True, and the reason is
+that every feature until now used the architecture to be *equivalent* to an editor rather than to do
+something an editor cannot.
+
+The structural difference is not the diff viewer or the chat. It is that **one process already holds all
+twenty repositories.** An editor window knows about one workspace, so "which of my repos have
+uncommitted work, and how long has it been sitting?" is a question answered by opening twenty windows.
+That makes any cross-repository view the real differentiator, and the deck is the cheapest one with the
+highest hit rate — you look at it every time you open the app.
+
+Choices that matter:
+
+**`dirtySince` is the OLDEST changed file, not the newest.** Newest is when you last saved, which you
+already know. Oldest is "this has been sitting since Tuesday", which is the thing you forget. Confirmed
+useful immediately: on the author's real machine the deck surfaced `prototype` with a change a day old,
+above the repository they were actively working in.
+
+**Ranked, not alphabetical.** A deck of twenty equal cards is a list, not an answer. Missing folders
+outrank everything (nothing else on the card can be trusted), then stale dirty work, then unpushed
+commits, then work in progress, then being behind. Alphabetical order carries no information; recency is
+the tie-break, because among clean repositories the one you were in an hour ago is the one you are coming
+back to.
+
+**Fetch-all is a button, not automatic.** Ahead/behind is measured against local remote refs, so a deck
+that has not fetched reads 0/0 everywhere — the one number here that can actively mislead. But twenty
+fetches is real network work and doing it on every open would make the screen slow and chatty. Measured:
+four real remotes in 2.1s.
+
+**Bounded pool, per-repo timeouts, per-repo errors.** Each repository is two git spawns and spawning is
+the expensive part on Windows; six at a time reads four repos in 219ms. One wedged repository on a
+network drive must not hold the deck up, and one unreadable repository must not cost the other nineteen
+their card.
+
+The deck deliberately does not poll. Twenty repositories is forty processes: cheap once, rude every ten
+seconds — and this is a screen you look at deliberately, not a monitor you leave running.
+
+Three sibling ideas were considered and not built: broadcasting one prompt to several repositories (the
+biggest leverage, but it sits close to the multi-agent line this project deliberately drew), a
+cross-repo dependency drift matrix, and a work journal for handover and billing. The deck came first
+because it is felt on every single launch.
+

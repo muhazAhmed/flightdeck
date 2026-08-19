@@ -12,6 +12,7 @@ What the tool does, grouped by area, each tagged with the phase it lands in.
 | Feature | Phase | Notes |
 |---|---|---|
 | Add a project by folder | P1 | Picker opens where you last browsed (home directory on a fresh install) and marks which folders are git repos. Rejects non-repos with a real reason. |
+| Deck — every project at once | **done** | The one screen an editor cannot have. A card per project: branch, uncommitted count, how long that work has been sitting, ahead/behind, last commit, last agent run. Ranked by what wants you, not alphabetically, so work rotting since Tuesday sits above six clean repos. One button fetches every remote so ahead/behind stops being a stale zero. No agent, no tokens. `Ctrl+Shift+D`. |
 | Project list in sidebar | P1 | Name, current branch, changed-file count, running indicator. |
 | Rename / remove from list | P1 | Removing never touches the folder on disk. |
 | Nested repos as separate projects | P1 | `com8_realty/web/Com8-Reality` and `com8_realty_server` are two projects. No special casing. |

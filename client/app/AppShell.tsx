@@ -8,6 +8,7 @@ import { chatsApi } from '@/features/chat/api';
 import { ChatPanel } from '@/features/chat/ChatPanel';
 import { ImportSessionDialog } from '@/features/chat/ImportSessionDialog';
 import { CommandPalette } from '@/features/command-palette/CommandPalette';
+import { DeckPage } from '@/features/deck/DeckPage';
 import { AddProjectDialog } from '@/features/projects/AddProjectDialog';
 import { ProjectSidebar } from '@/features/projects/ProjectSidebar';
 import { useProjects } from '@/features/projects/useProjects';
@@ -45,6 +46,9 @@ export function AppShell() {
   const toggleChanges = useWorkspace((s) => s.toggleChanges);
   const setPaletteOpen = useWorkspace((s) => s.setPaletteOpen);
   const settingsOpen = useWorkspace((s) => s.settingsOpen);
+  const deckOpen = useWorkspace((s) => s.deckOpen);
+  const setDeckOpen = useWorkspace((s) => s.setDeckOpen);
+  const toggleDeck = useWorkspace((s) => s.toggleDeck);
   const terminalOpen = useWorkspace((s) => s.terminalOpen);
   const toggleTerminal = useWorkspace((s) => s.toggleTerminal);
   const setTerminalOpen = useWorkspace((s) => s.setTerminalOpen);
@@ -133,10 +137,25 @@ export function AppShell() {
   useEffect(() => {
     if (restored.current || !settingsLoaded || loading) return;
     restored.current = true;
-    if (!settings.restoreLastProject || selectedProjectId) return;
-    const target = settings.lastProjectId;
-    if (target && projects.some((p) => p.id === target)) selectProject(target);
-  }, [settingsLoaded, loading, projects, settings.restoreLastProject, settings.lastProjectId, selectedProjectId, selectProject]);
+    if (selectedProjectId) return;
+    const target = settings.restoreLastProject ? settings.lastProjectId : null;
+    if (target && projects.some((p) => p.id === target)) {
+      selectProject(target);
+      return;
+    }
+    // Nothing to restore: open on the deck rather than an empty chat, which is the more useful
+    // question to be looking at when you do not yet know which repo you are working in.
+    if (projects.length > 0) setDeckOpen(true);
+  }, [
+    settingsLoaded,
+    loading,
+    projects,
+    settings.restoreLastProject,
+    settings.lastProjectId,
+    selectedProjectId,
+    selectProject,
+    setDeckOpen
+  ]);
 
   /**
    * The agent just wrote a file, so the Changes panel is out of date.
@@ -164,9 +183,19 @@ export function AppShell() {
   useHotkey('k', () => setPaletteOpen(true), { inFields: true });
   useHotkey(',', () => setSettingsOpen(true), { inFields: true });
   // Esc leaves settings. No modifier, and it must work while a field has focus.
-  useHotkey('Escape', () => setSettingsOpen(false), { ctrl: false, inFields: true });
+  // Esc leaves whichever whole-pane view is open. No modifier, and it must work while a field has
+  // focus.
+  useHotkey(
+    'Escape',
+    () => {
+      setSettingsOpen(false);
+      setDeckOpen(false);
+    },
+    { ctrl: false, inFields: true }
+  );
   // Ctrl+J must reach the terminal even while it has focus, which is why it fires inside fields.
   useHotkey('j', toggleTerminal, { inFields: true });
+  useHotkey('d', toggleDeck, { shift: true, inFields: true });
   useHotkey('b', toggleSidebar);
   useHotkey('g', toggleChanges, { shift: true });
 
@@ -230,6 +259,20 @@ export function AppShell() {
           )}
           {sidebarCollapsed ? null : <ResizeHandle />}
 
+          {deckOpen ? (
+            <Panel id="deck" minSize="30">
+              <DeckPage
+                open={deckOpen}
+                onOpenProject={(id) => {
+                  selectProject(id);
+                  setDeckOpen(false);
+                }}
+                onAddProject={() => setAddOpen(true)}
+                onClose={() => setDeckOpen(false)}
+              />
+            </Panel>
+          ) : (
+            <>
           <Panel id="chat" minSize="30">
             {/* A nested vertical group: chat above, terminal below, with a drag handle between them.
                 Inside the centre column rather than across the window, so the Changes panel stays
@@ -281,6 +324,8 @@ export function AppShell() {
               <Panel id="changes" defaultSize="26" minSize="18" maxSize="45">
                 <ChangesPanel project={project} revision={gitRevision} confirmLevel={settings.confirmLevel} />
               </Panel>
+            </>
+          )}
             </>
           )}
         </Group>

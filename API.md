@@ -232,6 +232,34 @@ Verified by terminating two sockets without a close handshake and confirming bot
 Reconnecting starts a **fresh** shell rather than reattaching: a PTY holds no replayable history, so
 pretending to resume would present an empty screen mid-session.
 
+### Deck (cross-project overview)
+
+`GET /api/overview` → `{projects: ProjectOverview[], readAt}`
+
+Every project in one response: branch, tracking, ahead/behind, staged/unstaged/untracked counts, HEAD's
+subject and date, when an agent last ran there, and `dirtySince`.
+
+`dirtySince` is the mtime of the **oldest** changed file, not the newest. Newest tells you when you last
+saved, which you already know; oldest tells you this repository has had work sitting in it since
+Tuesday, which is the thing you forget. Capped at 200 files statted — it is a hint, not an audit.
+
+Read with a bounded pool (6 at a time, 5s per git call) because each repository costs two spawns and
+spawning is the expensive part on Windows. A repository that cannot be read gets `error` on its own card
+rather than failing the response, and a folder that has moved gets `missing: true` — silently rendering
+it as "clean" would be the worst outcome.
+
+No agent, no tokens: git and the filesystem.
+
+`POST /api/overview/fetch` → `{fetched, failed}`
+
+Fetches every project, then the deck is re-read. Its own action rather than automatic: ahead/behind is
+measured against local remote refs, so on a deck that has not fetched today every card honestly reads
+0/0 — which looks like "nothing to push". Read-only on each remote, so no confirmation. Unreachable
+remotes are counted, not thrown.
+
+Measured on the author's four registered repositories: overview in **219ms**, fetch-all across four real
+remotes in **2.1s**, 0 failures.
+
 ### Build trigger
 
 `POST /api/git/trigger-build` → `{summary, status}`

@@ -65,6 +65,15 @@ a diff you commit yourself.
 
 ## Features
 
+### The deck
+- **Every project on one screen** — branch, uncommitted count, how long that work has been sitting, ahead/behind, last commit, last agent run
+- **Ranked by what wants you**, not alphabetically: a repo with changes rotting since Tuesday sits above six clean ones
+- **Fetch every remote in one click**, so ahead/behind means something instead of reading a stale zero
+- Costs no tokens — it is git and the filesystem, not an agent
+
+This is the part an editor structurally cannot do: a window knows about one workspace, so "which of my
+twenty repos have uncommitted work?" costs twenty windows to answer. Here it is a glance.
+
 ### Projects
 - Repo-aware folder picker — non-repositories are rejected with a real reason
 - Nested repositories are separate projects, no special casing
@@ -161,6 +170,7 @@ Preferences you set in the UI — theme, accent, density, terminal profile, conf
 | Shortcut | Action |
 |---|---|
 | `Ctrl+K` | Command palette — jump to any project or chat |
+| `Ctrl+Shift+D` | The deck — every project at once |
 | `Ctrl+Enter` | Send the prompt (plain `Enter` inserts a newline) |
 | `Ctrl+J` | Toggle the terminal |
 | `Ctrl+B` | Toggle the project sidebar |
