@@ -246,6 +246,28 @@ repeat request for index 1 with the old subject was refused and nothing was drop
 The UI always confirms this one, regardless of the confirmation-level setting, and names the stash rather than a
 count.
 
+`POST /api/git/merge-ff` `{projectId, ref}` -> `{summary, status, branches}`
+
+`git merge --ff-only <ref>` and nothing else, for the case where a pull request lands on the host and the trunk
+needs to catch up before being pushed.
+
+The old rule was that no merge belongs in this tool. It was about the dangerous half of merging — a merge commit
+invented for you, a conflict to resolve, history rewritten. `--ff-only` does none of those: the pointer moves to a
+commit that already contains yours, or the command refuses. `--no-ff`, `--squash`, `-X` and strategy options are
+unreachable, asserted by a test.
+
+Refusals, each verified against a real remote and two clones: `GIT_DIRTY` (checked before git is asked, so the
+message is about what to do), `SAME_BRANCH`, `NO_SUCH_REF` (the ref is verified as a commit first, and goes through
+the same shape check as a branch name, which rejects a leading dash), and `NOT_FF` carrying git's own
+"Diverging branches can't be fast-forwarded" with `HEAD` confirmed unmoved.
+
+**Nothing is pushed.** That stays a separate act.
+
+`GET /api/git/branches` now also returns `defaultBranch`, from `origin/HEAD` where it is set, falling back to a
+conventional name only if that branch exists and to null rather than guessing. The UI uses it to warn when a
+fast-forward is about to happen somewhere other than the trunk.
+
+
 ### Commit history
 
 `GET /api/git/log?projectId=&limit=&skip=` → `{commits, hasMore}`

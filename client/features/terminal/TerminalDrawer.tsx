@@ -5,6 +5,7 @@ import { ConfirmDialog, type ConfirmRequest } from '@/shared/ui/ConfirmDialog';
 import { EmptyState } from '@/shared/ui/EmptyState';
 import { IconButton } from '@/shared/ui/IconButton';
 import { cn } from '@/lib/cn';
+import { FastForwardButton } from './FastForwardButton';
 import { ShellMenu } from './ShellMenu';
 import { useBuildTrigger } from './useBuildTrigger';
 import { useShellProfiles } from './useShellProfiles';
@@ -17,8 +18,16 @@ interface TerminalDrawerProps {
   fontSize: number;
   cursorBlink: boolean;
   onShellChange: (id: string) => void;
-  /** Called after the build trigger commits, so the Changes panel stops showing stale ahead counts. */
+  /** Called after the build trigger commits or a fast-forward lands — an immediate refresh, since the action came
+   *  from this header and its result is known. */
   onCommitted: () => void;
+  /**
+   * Called as the shell produces output.
+   *
+   * Fired per chunk, so the listener must debounce: a `git status` per chunk of a build log would be absurd. It
+   * exists because a merge, checkout, commit or pull typed in here moves exactly the state the Changes panel shows.
+   */
+  onShellActivity: () => void;
   onClose: () => void;
 }
 
@@ -39,13 +48,17 @@ export function TerminalDrawer({
   cursorBlink,
   onShellChange,
   onCommitted,
+  onShellActivity,
   onClose
 }: TerminalDrawerProps) {
   const { profiles, selectedId } = useShellProfiles(shellId);
-  const { containerRef, status, focus, clear } = useTerminal(project?.id ?? null, selectedId, {
-    fontSize,
-    cursorBlink
-  });
+  const { containerRef, status, focus, clear } = useTerminal(
+    project?.id ?? null,
+    selectedId,
+    { fontSize, cursorBlink },
+    // Anything you run in here — merge, checkout, commit, pull — moves the same state the Changes panel shows.
+    onShellActivity
+  );
   const { trigger, running } = useBuildTrigger(project?.id ?? null, onCommitted);
   const [confirm, setConfirm] = useState<ConfirmRequest | null>(null);
 
@@ -84,7 +97,11 @@ export function TerminalDrawer({
           </span>
         ) : null}
 
-        <span className="ml-auto flex shrink-0 items-center gap-0.5">
+        <span className="ml-auto flex shrink-0 items-center gap-1.5">
+          <FastForwardButton project={project} onMerged={onCommitted} />
+        </span>
+
+        <span className="flex shrink-0 items-center gap-0.5">
           {/* Pushes, so it always asks first — and the dialog shows the two commands verbatim rather
               than describing them. */}
           <IconButton

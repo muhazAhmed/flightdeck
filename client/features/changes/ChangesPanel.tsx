@@ -301,6 +301,7 @@ export function ChangesPanel({ project, revision, confirmLevel }: ChangesPanelPr
           />
         </div>
 
+
         <div className="mt-2.5 flex gap-1 rounded-lg border border-border-subtle bg-(--bg-base) p-1">
           <TabButton active={tab === 'unstaged'} count={changed.length} tone="changed" onClick={() => setTab('unstaged')}>
             Unstaged

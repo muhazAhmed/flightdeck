@@ -37,7 +37,9 @@ database.
 5. **Git paths resolve server-side from `projectId`.** A path from the client is never
    passed to `simple-git` or a spawn.
 6. **The agent never commits, pushes, or switches branches.** It edits the working tree;
-   the human reviews and commits. No `push`, no `reset --hard`, no `merge` routes exist.
+   the human reviews and commits. No `push` and no `reset --hard` route exists, and the only merge
+   that exists is `--ff-only` — it moves a branch pointer or refuses, so it cannot conflict, cannot
+   invent a merge commit and cannot lose work. A merge that would create a commit stays in a terminal.
 7. **No new dependency without a reason in the commit message.** This tool should stay
    small enough to understand in one sitting.
 8. **No machine, client or personal name anywhere.** Not in code, not in a comment, not in a fixture, not in a

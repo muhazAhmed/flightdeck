@@ -35,6 +35,14 @@ export interface Project {
   defaultPermissionMode: PermissionMode;
   /** Optional command that means "is this project still healthy", e.g. `npm run build`. */
   verifyCommand?: string;
+  /**
+   * The ref the terminal's fast-forward button uses, remembered per project.
+   *
+   * Absent until it is chosen or guessed: the guess tries `origin/dev` and its usual spellings, because the
+   * workflow this serves is "a pull request landed on dev, bring the trunk up to it". Never inferred silently —
+   * the button shows the ref it will use.
+   */
+  fastForwardRef?: string;
 }
 
 export interface Chat {
@@ -619,6 +627,13 @@ export interface BranchList {
   local: BranchInfo[];
   /** Short remote refs (`origin/feature-x`), excluding `origin/HEAD`. */
   remote: string[];
+  /**
+   * The repository's default branch, from `origin/HEAD` where it is set.
+   *
+   * Used to warn when a fast-forward is about to happen somewhere unexpected — merging into a feature branch by
+   * accident is the mistake worth catching, and only the repository knows which branch is the trunk.
+   */
+  defaultBranch: string | null;
 }
 
 /** Result of a branch mutation: the summary, the new status, and the refreshed list. */

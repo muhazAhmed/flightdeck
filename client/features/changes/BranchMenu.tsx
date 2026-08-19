@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
-import { Check, ChevronDown, Cloud, GitBranch, Plus, RefreshCw, Trash2 } from 'lucide-react';
+import { Check, ChevronDown, Cloud, GitBranch, Plus, RefreshCw, Search, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { BranchList, GitStatus } from '@shared/types';
 import { Button } from '@/shared/ui/Button';
@@ -35,6 +35,7 @@ export function BranchMenu({ projectId, status, revision, onStatus }: BranchMenu
   const [fetching, setFetching] = useState(false);
   const [creating, setCreating] = useState(false);
   const [confirm, setConfirm] = useState<ConfirmRequest | null>(null);
+  const [query, setQuery] = useState('');
 
   /**
    * Fetch after landing on a branch.
@@ -75,6 +76,15 @@ export function BranchMenu({ projectId, status, revision, onStatus }: BranchMenu
 
   const dirty = (status?.staged.length ?? 0) + (status?.unstaged.length ?? 0) > 0;
   const current = branches?.current ?? status?.branch ?? null;
+
+  /*
+   * Filtering, because a repository with forty branches turns this menu into a scroll hunt. Matches anywhere in
+   * the name rather than only at the start: `auth` should find `feat/login-auth`, which is how branches get named.
+   */
+  const needle = query.trim().toLowerCase();
+  const localMatches = (branches?.local ?? []).filter((branch) => branch.name.toLowerCase().includes(needle));
+  const remoteMatches = (branches?.remote ?? []).filter((name) => name.toLowerCase().includes(needle));
+  const noMatches = needle.length > 0 && localMatches.length + remoteMatches.length === 0;
 
   async function checkout(branch: string) {
     setBusy(true);
@@ -191,14 +201,35 @@ export function BranchMenu({ projectId, status, revision, onStatus }: BranchMenu
             sideOffset={4}
             className="z-50 max-h-96 w-80 overflow-y-auto rounded-md border border-border-default bg-surface-2 p-1 shadow-(--shadow-popover)"
           >
+            {/* Radix moves focus to the first item and treats typing as its own type-ahead, so the input has to
+                stop both: `onKeyDown` keeps keystrokes out of the menu, and autoFocus wins the focus back. */}
+            <div className="mx-1 mb-1 flex items-center gap-2 rounded-md border border-border-default bg-(--bg-base) px-2">
+              <Search size={12} className="shrink-0 text-text-muted" />
+              <input
+                autoFocus
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                onKeyDown={(event) => event.stopPropagation()}
+                placeholder="Search branches…"
+                spellCheck={false}
+                className="w-full bg-transparent py-1.5 text-[12.5px] text-text-primary placeholder:text-text-muted focus:outline-none"
+              />
+            </div>
+
             {dirty ? (
               <p className="mx-1 mb-1 rounded bg-warn/10 px-2 py-1.5 text-[12.5px] text-warn">
                 Uncommitted changes — switching is blocked until you commit or stash.
               </p>
             ) : null}
 
-            <DropdownMenu.Label className="px-2 py-1 text-[12.5px] text-text-muted">Local</DropdownMenu.Label>
-            {(branches?.local ?? []).map((branch) => (
+            {noMatches ? (
+              <p className="px-2 py-2 text-[12.5px] text-text-muted">No branch matches “{query.trim()}”.</p>
+            ) : null}
+
+            {localMatches.length > 0 ? (
+              <DropdownMenu.Label className="px-2 py-1 text-[12.5px] text-text-muted">Local</DropdownMenu.Label>
+            ) : null}
+            {localMatches.map((branch) => (
               <div key={branch.name} className="group flex items-center gap-1 rounded px-1 hover:bg-surface-3">
                 <DropdownMenu.Item
                   disabled={busy || branch.current || dirty}
@@ -229,40 +260,61 @@ export function BranchMenu({ projectId, status, revision, onStatus }: BranchMenu
               </div>
             ))}
 
-            {(branches?.remote ?? []).length > 0 ? (
+            {remoteMatches.length > 0 ? (
               <>
                 <DropdownMenu.Separator className="my-1 h-px bg-border-subtle" />
                 <DropdownMenu.Label className="px-2 py-1 text-[12.5px] text-text-muted">
-                  Remote — checking one out creates a local tracking branch
+                  Remote — check one out to track it, or fast-forward onto it
                 </DropdownMenu.Label>
-                {(branches?.remote ?? [])
-                  // A remote branch already checked out locally is reachable above.
-                  .filter((name) => !(branches?.local ?? []).some((l) => l.upstream === name))
-                  .map((name) => (
-                    <DropdownMenu.Item
-                      key={name}
-                      disabled={busy || dirty}
-                      onSelect={() => askCheckout(name)}
-                      className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 outline-none hover:bg-surface-3 data-[disabled]:cursor-default data-[disabled]:opacity-60"
-                    >
-                      <Cloud size={12} className="shrink-0 text-text-muted" />
-                      <span className="truncate font-mono text-[12.5px]">{name}</span>
-                    </DropdownMenu.Item>
-                  ))}
+                {/*
+                  Tracked remotes used to be hidden here, on the grounds that the local branch above reaches the
+                  same thing. For checkout that is true; for a fast-forward it is not. After a pull request is
+                  merged on the host, `origin/dev` is ahead of local `dev` — and `origin/dev` was exactly the ref
+                  that could not be selected. They are shown, labelled with the local branch that tracks them.
+                */}
+                {remoteMatches.map((name) => {
+                  const trackedBy = (branches?.local ?? []).find((l) => l.upstream === name);
+                  return (
+                    <div key={name} className="group flex items-center gap-1 rounded px-1 hover:bg-surface-3">
+                      <DropdownMenu.Item
+                        disabled={busy || dirty || trackedBy !== undefined}
+                        onSelect={() => askCheckout(name)}
+                        className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 px-1 py-1.5 outline-none data-[disabled]:cursor-default data-[disabled]:opacity-60"
+                      >
+                        <Cloud size={12} className="shrink-0 text-text-muted" />
+                        <span className="min-w-0 flex-1 truncate font-mono text-[12.5px]">{name}</span>
+                        {trackedBy ? (
+                          <span className="shrink-0 text-[11px] text-text-muted">tracked by {trackedBy.name}</span>
+                        ) : null}
+                      </DropdownMenu.Item>
+                    </div>
+                  );
+                })}
               </>
             ) : null}
 
-            <DropdownMenu.Separator className="my-1 h-px bg-border-subtle" />
-            <DropdownMenu.Item
-              onSelect={() => setCreating(true)}
-              className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 outline-none hover:bg-surface-3"
-            >
-              <Plus size={12} className="text-text-muted" />
-              New branch from {current ?? 'here'}…
-            </DropdownMenu.Item>
           </DropdownMenu.Content>
         </DropdownMenu.Portal>
       </DropdownMenu.Root>
+
+      {/*
+        Green because creating a branch is an addition, which is the one non-diff use of that hue this design
+        allows — and `--fill-success` rather than `bg-success`, because the bright mark colour measured 2.3:1
+        against white text. The fill is the token that carries white.
+      */}
+      <button
+        title={`New branch from ${current ?? 'here'}`}
+        disabled={busy}
+        onClick={() => setCreating(true)}
+        className={cn(
+          'flex h-6 shrink-0 items-center gap-0.5 rounded-md bg-(--fill-success) px-1.5 text-[11.5px] font-medium text-white',
+          'transition-opacity duration-(--duration-fast) hover:opacity-90',
+          'disabled:pointer-events-none disabled:opacity-40'
+        )}
+      >
+        <Plus size={12} />
+        New
+      </button>
 
       <CreateBranchDialog
         open={creating}

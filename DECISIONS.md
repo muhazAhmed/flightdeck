@@ -1434,3 +1434,45 @@ came back with "Position 1 now holds ... rather than ..." and nothing was droppe
 It always confirms, regardless of the confirmation-level setting, and the dialog names the stash. This is the one
 action in that panel with no way back — the reflog technically keeps the commit for a while, but nothing in this
 UI can reach it and no ordinary user will, so it is treated as permanent.
+
+## Fast-forward is allowed; merge is still not
+
+The workflow asked for: a pull request lands on the host, so `origin/dev` moves ahead, and the trunk needs to
+catch up before being pushed. In a terminal that is `git merge --ff-only origin/dev`. In this tool it was
+nothing, because SPEC said no merge belongs here.
+
+That rule was right about the thing it was protecting against, and too broad about the mechanism. What makes a
+merge dangerous is the part that decides something: a merge commit invented on your behalf, a conflict to resolve
+half-way through, history rewritten. `--ff-only` does none of it — the branch pointer moves to a commit that
+already contains yours, or the command refuses and nothing changes. Pull has always been `--ff-only` for exactly
+this reason, and the update feature fast-forwards the install itself. So the shape was already in the codebase;
+the rule just had not caught up.
+
+Sharpened rather than dropped, in all three places it appears: `--ff-only` is allowed, and a merge that would
+create a commit stays in a terminal. `--no-ff`, `--squash`, `-X` and strategy options are unreachable, with a
+test asserting they appear nowhere in the route.
+
+Guarded on four counts, each verified live against a real remote and two clones: a dirty tree is refused before
+git is asked, so the message is about what to do rather than about paths; the branch you are already on is
+refused; a ref that is not a commit is refused by name; and a genuine divergence comes back with git's own words
+("Diverging branches can't be fast-forwarded"), with `HEAD` confirmed unmoved and nothing left half-merged.
+Nothing is pushed — that stays a separate, deliberate act, and the toast says so.
+
+**Two things came out of building it.**
+
+The request was to consider hiding the button unless you are on the trunk. It shows always, and the confirmation
+carries the warning instead: it names the branch being moved, and when that is not the repository's default
+branch the dialog turns danger-toned and says "You are on dev, not main". A fast-forward cannot lose work, so
+removing the capability costs more than the mistake it prevents — and the dialog prevents the mistake anyway. The
+default branch comes from `origin/HEAD`, falling back to a conventional name only if it actually exists, and to
+null rather than guessing.
+
+**And a real bug, found because the new action sat next to it.** The branch list carried a bogus `origin` row:
+git abbreviates `refs/remotes/origin/HEAD` to plain `origin`, which does not end in `/HEAD`, so filtering the
+short name let it through. Now filtered on the full ref. It only appears in a clone of a repository that already
+had commits, which is why it survived every earlier test — the fixtures cloned empty repositories.
+
+The remote list also used to hide branches with a local counterpart, on the grounds that the local row reached
+the same thing. True for checkout, false for a fast-forward: after a merged pull request `origin/dev` is
+precisely the ref that is ahead of local `dev`, and it was the one ref that could not be selected. They are shown
+now, labelled with the local branch that tracks them.

@@ -170,6 +170,14 @@ export function AppShell() {
    */
   const bumpGit = useCallback(() => setGitRevision((n) => n + 1), []);
   const onFilesTouched = useDebouncedCallback(bumpGit, 700, 4000);
+  /**
+   * The shell settling down.
+   *
+   * Longer trailing wait than the agent's edits: a command produces a burst of output and then stops, and the
+   * interesting moment is after it stops. The 6s ceiling covers a long build that never goes quiet, so a `git
+   * checkout` buried in a busy log still reaches the panel.
+   */
+  const onShellActivity = useDebouncedCallback(bumpGit, 900, 6000);
 
   const onRunStateChange = useCallback(
     (running: boolean) => {
@@ -324,6 +332,7 @@ export function AppShell() {
                         cursorBlink={settings.terminalCursorBlink}
                         onShellChange={(id) => void updateSettings({ terminalShell: id })}
                         onCommitted={bumpGit}
+                        onShellActivity={onShellActivity}
                         onClose={() => setTerminalOpen(false)}
                       />
                     </Suspense>

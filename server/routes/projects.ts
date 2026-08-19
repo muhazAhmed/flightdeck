@@ -88,9 +88,14 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
 
   app.patch<{
     Params: { id: string };
-    Body: { name?: string; defaultPermissionMode?: PermissionMode; verifyCommand?: string };
+    Body: {
+      name?: string;
+      defaultPermissionMode?: PermissionMode;
+      verifyCommand?: string;
+      fastForwardRef?: string;
+    };
   }>('/api/projects/:id', async (req, reply) => {
-    const { name, defaultPermissionMode, verifyCommand } = req.body ?? {};
+    const { name, defaultPermissionMode, verifyCommand, fastForwardRef } = req.body ?? {};
     if (defaultPermissionMode && !PERMISSION_MODES.includes(defaultPermissionMode)) {
       return badRequest(reply, `Unknown permission mode: ${defaultPermissionMode}`);
     }
@@ -100,6 +105,8 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
       if (name?.trim()) project.name = name.trim();
       if (defaultPermissionMode) project.defaultPermissionMode = defaultPermissionMode;
       if (verifyCommand !== undefined) project.verifyCommand = verifyCommand.trim() || undefined;
+      // Only remembered, never executed from here — the merge route validates it again before git sees it.
+      if (fastForwardRef !== undefined) project.fastForwardRef = fastForwardRef.trim() || undefined;
       return project;
     });
     return updated ?? notFound(reply, 'No such project.');

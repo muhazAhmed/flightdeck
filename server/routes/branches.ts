@@ -57,8 +57,13 @@ export function parseBranchList(stdout: string): BranchList {
     if (!fullRef || !shortRef) continue;
 
     if (fullRef.startsWith('refs/remotes/')) {
-      // `origin/HEAD` is a symbolic pointer, not a branch anyone checks out.
-      if (!shortRef.endsWith('/HEAD')) remote.push(shortRef);
+      /*
+       * `origin/HEAD` is a symbolic pointer, not a branch anyone checks out — and it must be filtered on the FULL
+       * ref, not the short one. git abbreviates `refs/remotes/origin/HEAD` to plain `origin`, which does not end in
+       * `/HEAD`, so the short-name check let it through and the branch list carried a bogus `origin` row. Found
+       * when a fast-forward action appeared beside it offering to merge a remote name.
+       */
+      if (!fullRef.endsWith('/HEAD')) remote.push(shortRef);
       continue;
     }
     // Tags and any other ref namespace are not branches.
@@ -75,7 +80,26 @@ export function parseBranchList(stdout: string): BranchList {
     });
   }
 
-  return { current, local, remote };
+  return { current, local, remote, defaultBranch: null };
+}
+
+/**
+ * The repository's trunk.
+ *
+ * `origin/HEAD` is what the host set when the repository was cloned, so it is the honest answer. When it is not
+ * set — a common state for a repository initialised locally — fall back to whichever conventional name exists,
+ * and to null rather than guessing. Null simply means no warning is offered.
+ */
+async function readDefaultBranch(cwd: string, local: BranchInfo[]): Promise<string | null> {
+  const head = await runGit(cwd, ['symbolic-ref', '--short', 'refs/remotes/origin/HEAD']);
+  if (head.ok) {
+    const short = head.stdout.trim().replace(/^origin\//, '');
+    if (short) return short;
+  }
+  for (const name of ['main', 'master']) {
+    if (local.some((branch) => branch.name === name)) return name;
+  }
+  return null;
 }
 
 async function list(reply: FastifyReply, cwd: string) {
@@ -88,7 +112,8 @@ async function list(reply: FastifyReply, cwd: string) {
     '--format=%(HEAD)%09%(refname)%09%(refname:short)%09%(upstream:short)%09%(contents:subject)%09%(committerdate:relative)'
   ]);
   if (!result.ok) return serverError(reply, 'Could not list branches.', messageOf(result));
-  return parseBranchList(result.stdout);
+  const parsed = parseBranchList(result.stdout);
+  return { ...parsed, defaultBranch: await readDefaultBranch(cwd, parsed.local) };
 }
 
 export async function branchRoutes(app: FastifyInstance): Promise<void> {
@@ -131,6 +156,65 @@ export async function branchRoutes(app: FastifyInstance): Promise<void> {
 
     const after = await readStatus(cwd);
     return { summary: messageOf(result) || `Switched to ${branch}.`, status: after, branches: await list(reply, cwd) };
+  });
+
+  /**
+   * Fast-forward the current branch to another ref.
+   *
+   * `git merge --ff-only <ref>` and nothing else. SPEC used to say no merge belongs in this tool, and that rule was
+   * about the dangerous half of merging: a merge commit, a conflict to resolve, history to rewrite. A fast-forward
+   * does none of those — it moves the branch pointer to a commit that already contains yours, or it refuses. Pull
+   * has always been `--ff-only` for the same reason, and the update feature fast-forwards the install itself.
+   *
+   * What it does NOT do is decide anything for you: no `--no-ff`, no `--squash`, no strategy option, no automatic
+   * push afterwards. A refusal comes back with git's own words, which for the interesting case reads "Not possible
+   * to fast-forward, aborting."
+   */
+  app.post<{ Body: { projectId?: string; ref?: string } }>('/api/git/merge-ff', async (req, reply) => {
+    const cwd = pathFor(req.body?.projectId);
+    if (!cwd) return notFound(reply, 'No such project.');
+
+    const ref = req.body?.ref?.trim();
+    if (!ref) return badRequest(reply, 'A ref to merge is required.');
+    // The same shape rules as a branch name, plus no leading dash: this string becomes a git argument.
+    const invalid = invalidBranchName(ref);
+    if (invalid) return badRequest(reply, invalid);
+
+    // Verified as a real commit-ish before it is merged, so a typo is a sentence rather than a plumbing error.
+    const exists = await runGit(cwd, ['rev-parse', '--verify', '--quiet', `${ref}^{commit}`]);
+    if (!exists.ok || exists.stdout.trim().length === 0) {
+      return badRequest(reply, `${ref} is not a branch or commit in this repository.`, 'NO_SUCH_REF');
+    }
+
+    const status = await readStatus(cwd);
+    if (!status) return serverError(reply, 'Could not read git status.');
+    if (!status.branch) return badRequest(reply, 'No branch is checked out.', 'DETACHED');
+
+    // A fast-forward rewrites tracked files. git refuses to clobber local edits, but its message is about paths
+    // rather than about what to do, so the check happens here where the answer can be said plainly.
+    if (status.staged.length + status.unstaged.length > 0) {
+      return badRequest(
+        reply,
+        'The working tree has uncommitted changes. Commit or stash them before fast-forwarding.',
+        'GIT_DIRTY'
+      );
+    }
+    if (ref === status.branch) {
+      return badRequest(reply, `${ref} is the branch you are on.`, 'SAME_BRANCH');
+    }
+
+    const result = await runGit(cwd, ['merge', '--ff-only', ref]);
+    if (!result.ok) {
+      // The common refusal is a genuine divergence, which is information rather than a fault.
+      return badRequest(reply, `Could not fast-forward ${status.branch} to ${ref}.`, 'NOT_FF', messageOf(result));
+    }
+
+    const after = await readStatus(cwd);
+    return {
+      summary: messageOf(result) || `Fast-forwarded ${status.branch} to ${ref}.`,
+      status: after,
+      branches: await list(reply, cwd)
+    };
   });
 
   app.post<{ Body: { projectId?: string; branch?: string; from?: string } }>(

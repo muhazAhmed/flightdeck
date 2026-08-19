@@ -61,6 +61,16 @@ export const gitApi = {
   triggerBuild: (projectId: string) => http.post<RemoteResult>('/api/git/trigger-build', { projectId })
 };
 
+/**
+ * Fast-forward the current branch to another ref.
+ *
+ * `--ff-only` only: it moves the pointer or refuses, so there is no merge commit to review and nothing to resolve.
+ */
+export const mergeApi = {
+  fastForward: (projectId: string, ref: string) =>
+    http.post<BranchResult>('/api/git/merge-ff', { projectId, ref })
+};
+
 export const identityApi = {
   get: (projectId: string) =>
     http.get<IdentityState>(`/api/git/identity?projectId=${encodeURIComponent(projectId)}`),

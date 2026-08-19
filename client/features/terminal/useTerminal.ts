@@ -37,7 +37,15 @@ export interface TerminalAppearance {
 export function useTerminal(
   projectId: string | null,
   shellId: string | null,
-  appearance: TerminalAppearance
+  appearance: TerminalAppearance,
+  /**
+   * Called when the shell has gone quiet after producing output.
+   *
+   * A `git merge`, `checkout`, `commit` or `pull` typed in here changes exactly the state the Changes panel
+   * shows, and nothing else would tell it. Parsing the input to spot git commands is not worth attempting —
+   * arrow keys, history and aliases all defeat it — so any output settling counts, and the listener debounces.
+   */
+  onSettled?: () => void
 ) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const terminalRef = useRef<Terminal | null>(null);
@@ -73,6 +81,10 @@ export function useTerminal(
   // appearance effect further down for why.
   const appearanceRef = useRef(appearance);
   appearanceRef.current = appearance;
+
+  // Same reason as `appearance`: this must not re-create the terminal, which would kill the shell.
+  const settled = useRef(onSettled);
+  settled.current = onSettled;
 
   useEffect(() => {
     const container = containerRef.current;
@@ -139,6 +151,7 @@ export function useTerminal(
           break;
         case 'output':
           terminal.write(message.data);
+          settled.current?.();
           break;
         case 'exit':
           setStatus({ state: 'exited', shell: null, shellId: null, message: `Shell exited (${message.code})` });

@@ -68,7 +68,8 @@ What the tool does, grouped by area, each tagged with the phase it lands in.
 | Commit history | **done** | A History tab beside Staged and Unstaged: commits with sha, author, age, branch and tag chips, and a merge marker. Expand one for its message body and files with per-file counts; click a file for its diff. Paged, read-only — no revert or reset, and no route that could become one. |
 | Word-level diff highlighting | **done** | Changed words inside a changed line are picked out, so a renamed identifier reads at a glance. Token-level LCS, and lines too dissimilar to be an edit of each other are left plain rather than striped. |
 | Push | **No** | Deliberately absent. See the safety rule. |
-| Merge / rebase / reset --hard | **No** | Do those in a terminal, consciously. |
+| Fast-forward onto another ref | **done** | `git merge --ff-only origin/dev` from the branch menu, for the workflow where a pull request lands on the host and the trunk needs to catch up. It moves the pointer or refuses — no merge commit, no conflict, nothing pushed. Refuses a dirty tree, the branch you are on, and an unknown ref; warns when you are not on the default branch. |
+| Merge that creates a commit, rebase, reset --hard | **No** | Anything that can conflict, invent a merge commit or rewrite history stays in a terminal, consciously. |
 
 ## Terminal
 
