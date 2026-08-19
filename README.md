@@ -182,7 +182,7 @@ written inside your repositories.
 | `Ctrl+K` | Command palette — jump to any project or chat |
 | `Ctrl+Shift+D` | The deck — every project at once |
 | `Ctrl+Shift+U` | Usage — cost and quota per project |
-| `Ctrl+Enter` | Send the prompt (plain `Enter` inserts a newline) |
+| `Enter` | Send the prompt (`Shift+Enter` for a new line; `Ctrl+Enter` also sends) |
 | `Ctrl+J` | Toggle the terminal |
 | `Ctrl+B` | Toggle the project sidebar |
 | `Ctrl+Shift+G` | Toggle the Changes panel |

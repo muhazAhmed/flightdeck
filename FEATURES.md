@@ -32,6 +32,7 @@ What the tool does, grouped by area, each tagged with the phase it lands in.
 | Streaming responses | P1 | rAF-batched; text appears, never animates per token. |
 | Collapsible tool cards | P1 | Edit / Bash / Read / Glob / Grep each render appropriately. |
 | Markdown in the transcript | **done** | Headings, bold, lists, tables, links, inline code chips and fenced blocks, every element styled from the design tokens. Your own messages stay verbatim — markdown there would reformat your words back at you. |
+| Delete a chat | **done** | Asks first, and names what is not obvious from the row: a running agent is stopped, sub-chats go with the parent, and the CLI keeps the transcript so it can be imported back. |
 | Stop a running chat | P1 | Always one click away. SIGTERM then SIGKILL. |
 | Resume a chat | P1 | Reopen and keep talking — same session, full context. |
 | Per-chat permission mode | P1 | `acceptEdits` default, `plan`, `bypassPermissions` (with a warn banner). |
@@ -87,7 +88,7 @@ What the tool does, grouped by area, each tagged with the phase it lands in.
 | Three resizable, collapsible panels | P1 | Widths persist. Sidebar collapses to an icon rail; Changes collapses to an edge tab. |
 | Four message channels | P1 | Inline / toast / banner / tool-card error. One job each. |
 | Real errors, never "something went wrong" | P1 | Every failure carries `git`/`claude` stderr and a copy button. |
-| Keyboard shortcuts | P1 | `Ctrl+K`, `Ctrl+Enter`, `Ctrl+B`, `Ctrl+Shift+G`, `Esc`. |
+| Keyboard shortcuts | P1 | `Ctrl+K`, `Enter` to send (`Shift+Enter` for a newline), `Ctrl+B`, `Ctrl+Shift+G`, `Ctrl+J`, `Ctrl+,`, `Esc`. |
 | Empty / loading / disconnected states | P1 | Skeletons, not full-page spinners. Server-down is a persistent banner with retry. |
 | Concurrent-chat warning | P1 | Two chats in one project share one working tree — the UI says so instead of pretending otherwise. |
 | Elapsed time on long tool cards | **done** | A slow `npm ci` reads as working, not hung. |

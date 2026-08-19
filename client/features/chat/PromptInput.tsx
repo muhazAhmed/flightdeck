@@ -121,12 +121,20 @@ export function PromptInput({ running, draft, onDraftConsumed, onSend, onStop }:
   }
 
   function onKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
-    // Ctrl+Enter sends; plain Enter inserts a newline. Prompts here are routinely several lines,
-    // and losing one to a stray Enter is infuriating.
-    if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
-      event.preventDefault();
-      submit();
-    }
+    if (event.key !== 'Enter') return;
+
+    /*
+     * An IME is mid-composition: this Enter is confirming a candidate, not finishing a sentence. Sending here
+     * would swallow the word being typed, and it is the one Enter case that has nothing to do with intent.
+     */
+    if (event.nativeEvent.isComposing) return;
+
+    // Shift+Enter is the newline. Alt+Enter too, because some keyboard layouts make Shift+Enter awkward.
+    if (event.shiftKey || event.altKey) return;
+
+    // Enter sends, and Ctrl/Cmd+Enter keeps working for the muscle memory it built.
+    event.preventDefault();
+    submit();
   }
 
   const busy = uploading > 0;
@@ -212,8 +220,10 @@ export function PromptInput({ running, draft, onDraftConsumed, onSend, onStop }:
           />
 
           <span className="ml-auto flex items-center gap-2.5">
+            {/* The affordance people need is the one that is NOT obvious: Enter sending is discovered on the
+                first message, whereas Shift+Enter has to be told. */}
             <span className="text-[11.5px] text-text-muted">
-              <kbd className="font-mono">Ctrl</kbd> + <kbd className="font-mono">Enter</kbd>
+              <kbd className="font-mono">Shift</kbd> + <kbd className="font-mono">Enter</kbd> for a new line
             </span>
             {running ? (
               <Button variant="danger" size="sm" onClick={onStop}>

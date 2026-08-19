@@ -1272,3 +1272,39 @@ The section that matters most is "say what you ran it against". This project has
 that typechecked, passed unit tests, and only failed on a real machine — `--verbose`, `GIT_ASKPASS`,
 `ENAMETOOLONG`, the shell tool being named `PowerShell` — so "tests pass" is stated outright as insufficient
 evidence, with the specific verification each area needs.
+
+## Enter sends
+
+Originally Ctrl+Enter sent and Enter inserted a newline, on the reasoning that prompts here are often several
+lines and losing one to a stray Enter is infuriating. In practice the opposite cost was higher: every short
+message needed two keys, and every chat interface the user works in sends on Enter. Reversed on request.
+
+Enter sends, Shift+Enter (or Alt+Enter) makes a newline, and Ctrl/Cmd+Enter still sends for the muscle memory
+it built. Two details that are easy to miss:
+
+- **An IME composition Enter must not send.** Confirming a candidate would swallow the word being typed. The
+  `isComposing` guard comes before the send, and a test asserts that ordering.
+- **The commit box keeps Ctrl+Enter.** A commit body is genuinely multi-line, and committing is a git action
+  rather than a message. Enter stays a newline there.
+
+The hint beside the input now reads "Shift+Enter for a new line" rather than naming the send key: Enter sending
+is discovered on the first message, whereas the newline has to be told.
+
+## A blank screen from editing Flight Deck with Flight Deck
+
+Using Flight Deck on its own repository, an agent added a delete-confirmation dialog to the chat row: it passed
+`onConfirm={setConfirm}` but never declared the state and never rendered `<ConfirmDialog>`. `tsc` reported both
+errors immediately — but **the dev server does not typecheck**. Vite hands files to esbuild, which strips types
+and serves them, so the app booted, the sidebar threw `ReferenceError: confirm is not defined` on render, and
+React unmounted the tree: a blank page with no visible error.
+
+Two things follow from it.
+
+**The sidebar now has a render test.** `test/chatInteractions.test.tsx` renders it with a chat and a sub-chat,
+which fails loudly on exactly this class of mistake. Verified by reintroducing the bug and watching it fail with
+the same ReferenceError before restoring.
+
+**Editing the running app from inside itself is a real hazard**, and worth stating plainly rather than
+engineering around: any half-finished client edit takes the window you are working in with it, and the recovery
+is a terminal. `npm run typecheck` after an agent touches client code is the cheap guard; doing that work in a
+second checkout is the safe one.

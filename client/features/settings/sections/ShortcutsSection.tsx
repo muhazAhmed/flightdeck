@@ -16,8 +16,9 @@ const GLOBAL: Shortcut[] = [
 ];
 
 const CHAT: Shortcut[] = [
-  { keys: ['Ctrl', 'Enter'], action: 'Send the prompt' },
-  { keys: ['Enter'], action: 'New line — prompts here are routinely several lines long' }
+  { keys: ['Enter'], action: 'Send the prompt' },
+  { keys: ['Shift', 'Enter'], action: 'New line' },
+  { keys: ['Ctrl', 'Enter'], action: 'Send the prompt, for the muscle memory' }
 ];
 
 export function ShortcutsSection() {

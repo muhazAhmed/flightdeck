@@ -15,6 +15,7 @@ import {
   Trash2
 } from 'lucide-react';
 import type { Chat, Project, UserInfo } from '@shared/types';
+import { ConfirmDialog, type ConfirmRequest } from '@/shared/ui/ConfirmDialog';
 import { IconButton } from '@/shared/ui/IconButton';
 import { Skeleton } from '@/shared/ui/Skeleton';
 import { cn } from '@/lib/cn';
@@ -62,6 +63,9 @@ export function ProjectSidebar({
   const setView = useWorkspace((s) => s.setView);
 
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  // Raised by a chat row, rendered once at the bottom of this component: a dialog per row would mount one
+  // per chat, and the row unmounts the moment the chat is gone.
+  const [confirm, setConfirm] = useState<ConfirmRequest | null>(null);
   const [query, setQuery] = useState('');
 
   // Opening a project should reveal its chats without a second click.
@@ -291,7 +295,9 @@ export function ProjectSidebar({
                             if (project.id !== selectedProjectId) selectProject(project.id);
                             selectChat(chat.id);
                           }}
+                          subChats={chats.filter((c) => c.parentChatId === chat.id).length}
                           onDeleted={onChatsChanged}
+                          onConfirm={setConfirm}
                         />
                       ))
                     )}
@@ -367,6 +373,8 @@ export function ProjectSidebar({
       </button>
 
       <SidebarFooter onOpenSettings={() => setView('settings')} />
+
+      <ConfirmDialog request={confirm} onClose={() => setConfirm(null)} />
     </nav>
   );
 }
@@ -375,14 +383,19 @@ function ChatRow({
   chat,
   selected,
   running,
+  subChats,
   onSelect,
-  onDeleted
+  onDeleted,
+  onConfirm
 }: {
   chat: Chat;
   selected: boolean;
   running: boolean;
+  /** Sub-chats that would go with it — the server deletes children in the same call. */
+  subChats: number;
   onSelect: () => void;
   onDeleted: () => void;
+  onConfirm: (request: ConfirmRequest) => void;
 }) {
   async function remove() {
     try {
@@ -391,6 +404,31 @@ function ChatRow({
     } catch (error) {
       toast.error(messageOf(error), { description: detailOf(error) });
     }
+  }
+
+  /**
+   * Deleting a chat asks first.
+   *
+   * Not because it destroys anything on disk — the CLI owns the transcript and keeps it, so the
+   * conversation can be imported back — but because the trash icon sits one row from the chat you are
+   * reading, revealed on hover, and a misclick used to be instant and silent. The dialog also names the two
+   * consequences that are not obvious: a running agent is stopped, and sub-chats go with the parent.
+   */
+  function confirmDelete() {
+    const consequences = [
+      running ? 'The agent running in it will be stopped.' : null,
+      subChats > 0 ? `${subChats} sub-chat${subChats === 1 ? '' : 's'} will be deleted with it.` : null,
+      "Claude Code keeps the transcript, so it can be imported back with the project's Import button."
+    ].filter(Boolean);
+
+    onConfirm({
+      title: `Delete "${chat.title}"?`,
+      description: consequences.join(' '),
+      files: [chat.title],
+      confirmLabel: 'Delete chat',
+      tone: 'danger',
+      onConfirm: () => void remove()
+    });
   }
 
   return (
@@ -410,7 +448,7 @@ function ChatRow({
         icon={<Trash2 size={12} />}
         tone="danger"
         revealOnGroupHover
-        onClick={() => void remove()}
+        onClick={confirmDelete}
       />
     </div>
   );

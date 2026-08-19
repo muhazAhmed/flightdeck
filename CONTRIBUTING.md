@@ -98,6 +98,10 @@ tests, and only appeared against real data on a real machine — `--verbose` bei
   someone else's client work.
 - Touched the **terminal**? Confirm the PTY is gone after the socket closes.
 - Touched **anything visual**? Say which theme, accent and density you looked at. Light mode is not optional.
+- Used **Flight Deck to edit Flight Deck**? Run `npm run typecheck` before you trust the window you are
+  looking at. The dev server does not typecheck — esbuild strips types and serves the file — so a client edit
+  that references something undeclared boots fine and then blanks the page with a `ReferenceError`. Working in
+  a second checkout avoids the problem entirely.
 
 **Update the docs in the same PR.** [FEATURES.md](./FEATURES.md) for scope, [API.md](./API.md) for routes or
 event shapes, [DESIGN.md](./DESIGN.md) for tokens, [DECISIONS.md](./DECISIONS.md) for any judgement call a
