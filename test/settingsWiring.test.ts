@@ -104,8 +104,10 @@ test('a new project inherits the configured permission mode', () => {
 
 test('purging attachments builds its path server-side', () => {
   const source = readFileSync('server/routes/storage.ts', 'utf8');
-  // The whole safety of a recursive delete is that the client cannot name the directory.
-  assert.match(source, /join\(stateDir\(\), 'attachments'\)/);
+  // The whole safety of a recursive delete is that the client cannot name the directory. The path comes
+  // from platform.ts, which is the one place allowed to know machine-specific locations.
+  assert.match(source, /attachmentsDir\(\)/);
+  assert.match(source, /from '\.\.\/platform\.js'/);
   assert.ok(!/req\.(body|query|params)/.test(source), 'the delete path must not come from the client');
 });
 

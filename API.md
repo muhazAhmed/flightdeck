@@ -232,6 +232,29 @@ Verified by terminating two sockets without a close handshake and confirming bot
 Reconnecting starts a **fresh** shell rather than reattaching: a PTY holds no replayable history, so
 pretending to resume would present an empty screen mid-session.
 
+### Attachments and tool access
+
+Attachments are written to `~/.flightdeck/attachments/<day>/`, and the *path* is appended to the prompt —
+so the agent reads what it needs with its own Read tool and a 2 MB screenshot never becomes 2 MB of
+context.
+
+That directory is outside every repository, which means outside the session's working directory, and the
+CLI **refuses tool access there**. Without a grant, a pasted image produced:
+
+```
+Claude requested permissions to read from
+C:/Users/.../.flightdeck/attachments/2026-08-19/b6001736-image.png,
+but you haven't granted it yet.
+```
+
+and the run could not see the file. There is no approval channel to answer that request through (no
+`--permission-prompt-tool`), so every run now passes `--add-dir <attachmentsDir>`. One directory, one that
+Flight Deck owns; it grants nothing over the user's own files. Passed on resumed sessions too, since a chat
+can refer back to a file attached several turns earlier.
+
+Verified end to end: an 8x8 magenta PNG was uploaded, its path sent in a prompt, and the run's `Read`
+returned `isError=false` with the image as base64 — the model answered "Magenta."
+
 ### Usage (per-project cost and quota)
 
 `GET /api/usage?days=1|7|30|90|0` → `UsageReport` (0 means everything recorded)

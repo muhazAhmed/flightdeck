@@ -9,12 +9,8 @@ import { existsSync, readdirSync, rmSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import type { FastifyInstance } from 'fastify';
 import type { StorageUsage } from '@shared/types';
-import { stateDir, statePath } from '../platform.js';
+import { attachmentsDir, statePath } from '../platform.js';
 import { serverError } from '../errors.js';
-
-function attachmentsDir(): string {
-  return join(stateDir(), 'attachments');
-}
 
 /**
  * Count and total size of everything under the attachments directory.

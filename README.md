@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="public/logo.png" alt="Flight Deck" width="96" height="96" />
+
 # Flight Deck
 
 **A local console for working on many repositories at once.**

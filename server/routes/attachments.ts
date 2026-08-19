@@ -17,7 +17,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { extname, join } from 'node:path';
 import type { FastifyInstance } from 'fastify';
 import type { Attachment } from '@shared/types';
-import { stateDir } from '../platform.js';
+import { attachmentsDir } from '../platform.js';
 import { badRequest, serverError } from '../errors.js';
 
 /** Matches the server's 8MB body cap with room for base64's ~33% overhead. */
@@ -36,10 +36,10 @@ export function safeName(name: string): string {
   return cleaned.slice(0, 80) || 'attachment';
 }
 
-function attachmentsDir(): string {
+function todayDir(): string {
   // Grouped by day so the folder stays browsable after a few months of use.
   const day = new Date().toISOString().slice(0, 10);
-  const dir = join(stateDir(), 'attachments', day);
+  const dir = join(attachmentsDir(), day);
   mkdirSync(dir, { recursive: true });
   return dir;
 }
@@ -67,7 +67,7 @@ export async function attachmentRoutes(app: FastifyInstance): Promise<void> {
     }
 
     const clean = safeName(name);
-    const path = join(attachmentsDir(), `${randomUUID().slice(0, 8)}-${clean}`);
+    const path = join(todayDir(), `${randomUUID().slice(0, 8)}-${clean}`);
     try {
       writeFileSync(path, bytes);
     } catch (err) {

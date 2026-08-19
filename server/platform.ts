@@ -22,6 +22,18 @@ export function statePath(): string {
 }
 
 /**
+ * Where pasted and dropped files are kept.
+ *
+ * Outside every repository on purpose — a screenshot is not part of anyone's source tree. That choice has
+ * a consequence the agent has to be told about: this path is not under the project's working directory, so
+ * the CLI will refuse to read from it unless it is passed as an additional allowed directory. See
+ * `--add-dir` in server/agent.ts.
+ */
+export function attachmentsDir(): string {
+  return join(stateDir(), 'attachments');
+}
+
+/**
  * Where the add-project picker opens when the user has never browsed before.
  *
  * Deliberately the home directory and nothing cleverer. There is NO default projects

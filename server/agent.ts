@@ -8,6 +8,7 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import type { Chat, Project, UiEvent } from '@shared/types';
 import { cliIsAvailable, resolveCli } from './cli.js';
+import { attachmentsDir } from './platform.js';
 import { LineBuffer, coalesceText, translateLine } from './stream.js';
 
 /** How long text deltas are pooled before being written to the client. Long enough to
@@ -64,6 +65,23 @@ export function buildArgs(chat: Chat, resume: boolean, maxTurns = 0): string[] {
     '--permission-mode',
     chat.permissionMode
   ];
+  /*
+   * Attachments live outside every repository, which means outside the session's working directory — and
+   * the CLI refuses tool access there. Without this flag a pasted screenshot produced:
+   *
+   *   "Claude requested permissions to read from ...\.flightdeckttachments\...png,
+   *    but you haven't granted it yet."
+   *
+   * and the run simply could not see the file. There is no approval channel to grant it through (see
+   * API.md — this CLI has no --permission-prompt-tool), so the directory has to be allowed up front.
+   *
+   * Always passed rather than only when the current message carries an attachment: a resumed session can
+   * refer back to a file attached several turns ago, and being told "no" then is just as useless.
+   *
+   * Scope is one directory that Flight Deck owns. It grants nothing over the user's own files.
+   */
+  args.push('--add-dir', attachmentsDir());
+
   // Absent means the CLI's own default; passing an empty string would be an error.
   if (chat.model) args.push('--model', chat.model);
   // A cap of 0 means no cap, so the flag is omitted entirely — `--max-turns 0` would end every run

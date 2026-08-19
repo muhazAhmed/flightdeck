@@ -104,6 +104,13 @@ export function SettingsPage({ settings, onUpdate, onReset, onClose }: SettingsP
 
           <aside className="flex min-w-0 flex-col gap-4">
             <Card title="About Flight Deck" icon={<Info size={14} />}>
+              <img
+                src="/logo.png"
+                alt=""
+                width={48}
+                height={48}
+                className="mb-3 size-12 rounded-lg"
+              />
               <p className="text-[13px] leading-5 text-text-secondary">
                 Local first. Your files never leave this machine, and nothing is committed unless you
                 do it.

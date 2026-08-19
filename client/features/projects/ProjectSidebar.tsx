@@ -5,7 +5,6 @@ import {
   ChevronsLeft,
   Download,
   Folder,
-  FolderOpen,
   MessageSquarePlus,
   Plus,
   Search,
@@ -84,6 +83,13 @@ export function ProjectSidebar({
   if (collapsed) {
     return (
       <nav className="flex h-full w-12 shrink-0 flex-col items-center gap-1 border-r border-border-subtle bg-surface-1 py-2">
+        <button
+          title="Expand sidebar (Ctrl+B)"
+          onClick={onCollapse}
+          className="mb-1 flex size-9 shrink-0 items-center justify-center rounded-md hover:bg-surface-2"
+        >
+          <img src="/logo-64.png" alt="Flight Deck" width={22} height={22} className="size-[22px] rounded" />
+        </button>
         {projects.map((project) => {
           const running = chats.some((c) => c.projectId === project.id && runningChatIds.includes(c.id));
           return (
@@ -138,9 +144,15 @@ export function ProjectSidebar({
   return (
     <nav className="flex h-full flex-col bg-surface-1">
       <header className="flex items-center gap-2 px-3 py-3">
-        <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-accent-subtle text-accent-bright">
-          <FolderOpen size={15} />
-        </span>
+        {/* The mark carries its own dark haze, so it sits on a plain rounded tile rather than an accent
+            fill — an accent square behind it would fight the gradient. Served from public/, not bundled. */}
+        <img
+          src="/logo-64.png"
+          alt=""
+          width={28}
+          height={28}
+          className="size-7 shrink-0 rounded-md"
+        />
         <span className="min-w-0 flex-1 truncate text-[15px] font-semibold tracking-tight">Flight Deck</span>
         <IconButton label="Collapse sidebar (Ctrl+B)" icon={<ChevronsLeft size={15} />} onClick={onCollapse} />
       </header>

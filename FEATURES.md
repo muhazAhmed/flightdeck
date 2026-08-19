@@ -43,7 +43,7 @@ What the tool does, grouped by area, each tagged with the phase it lands in.
 | Rate-limit / quota chip | **done** | From `rate_limit_event`: window type and reset time, in the chat header. Know before starting something big. |
 | Run summary line | **done** | Turns, duration, notional cost and permission denials, from the `result` event. |
 | Sub-chats | P3 | A chat with `parentChatId`. Grouping in the sidebar; no special agent behaviour. |
-| Attach files and images | **done** | Paste a screenshot, drop files, or use the paperclip. Bytes are saved to `~/.flightdeck/attachments/` and the *path* is appended to the prompt, so the agent reads what it needs with its own Read tool — no truncation, and a 2 MB screenshot never becomes 2 MB of context. |
+| Attach files and images | **done** | Paste a screenshot, drop files, or use the paperclip. Bytes are saved to `~/.flightdeck/attachments/` and the *path* is appended to the prompt, so the agent reads what it needs with its own Read tool — no truncation, and a 2 MB screenshot never becomes 2 MB of context. The directory is granted to each run with `--add-dir`, without which the CLI refuses to read there at all. |
 | Slash commands and skills | P3 | `system/init` already lists what's available; surface them as autocomplete. |
 | Edit-and-resend a prompt | Later | |
 | Fork a chat | Later | `--fork-session` resumes into a new session id. Cheap to add if wanted. |
