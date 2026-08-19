@@ -4,6 +4,14 @@
   "private": true,
   "type": "module",
   "description": "Local console for working on many repos at once: chat, review, commit.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/muhazAhmed/flightdeck.git"
+  },
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "concurrently -n server,client -c cyan,magenta \"npm:dev:server\" \"npm:dev:client\"",
     "dev:server": "tsx watch server/index.ts",
