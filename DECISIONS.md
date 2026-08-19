@@ -1518,3 +1518,90 @@ The icon is an `.ico` built by concatenation rather than encoding: since Vista a
 verbatim, so the three committed logo PNGs are wrapped with a six-byte header and a directory. Nothing is
 re-encoded, which means the icon is exactly the artwork already in the repository, and a test walks the entries
 to check each one really is a PNG inside the file's bounds.
+
+## A run button, and why it types into the terminal
+
+Asked for as "check its run script, execute it, start the project", with an open question about where the button goes.
+It went in the chat header beside the model picker, which was the suggestion — that row is about the project, and the
+button is the one control there that acts on the project rather than the conversation.
+
+**The real decision was where the output goes.** A dev server prints continuously, is stopped with `Ctrl+C`, and
+should die with the thing that started it. All three of those are what a terminal already is, so the button opens the
+drawer and types the command. Scrollback, colour, signals and lifetime then need no thought: they are whatever they
+are when you type it yourself. Inventing an output panel would have meant reimplementing each of those, worse.
+
+This is the opposite of the choice made for the build trigger, which deliberately avoids the shell — and the
+distinction is worth stating because both are defensible. That command is fixed, short, and its result is a git state;
+`&&` breaks in PowerShell and typed input would land in whatever is running. This command is long-lived and its log is
+the entire point.
+
+Three details:
+
+**A queue of one, in the store.** The button lives outside the terminal, and the terminal may not be open. Writing to
+a socket that does not exist yet loses the command silently, so `runInTerminal` opens the drawer and leaves the
+command in `pendingCommand`; the terminal types it once its socket is ready and clears it immediately, so a re-render
+cannot type it twice.
+
+**Enter is a named constant.** It was first written as a literal carriage return inside a template string, where it is
+invisible — and the first tool to normalise line endings turns it into CRLF or drops it, after which the command is
+typed into the prompt and never runs. `String.fromCharCode(13)`, with a test forbidding the literal.
+
+**The package manager comes from the lockfile.** Running `npm run dev` in a pnpm workspace works often enough to be
+dangerous and fails confusingly when it does not. Checked most-specific first, because a repository mid-migration
+usually still carries a stale `package-lock.json`.
+
+Verified end to end against a real shell rather than only in tests: the socket was driven exactly as the queue does,
+`npm run typecheck` appeared at a Git Bash prompt, tsc ran, and the prompt returned.
+
+**One UI bug, reported from a screenshot.** The split control was two bordered buttons meant to abut, and the adjacent
+borders rendered as a visible gap — it read as two separate controls. Rebuilt as a single bordered container with one
+internal divider and `overflow-hidden`, so there is no seam to render badly at any zoom level.
+
+## Shells belong to projects, not to sockets — reversing an earlier decision
+
+Reported from use: start a dev server in project A, switch to project B, start one there, and A's server is dead. It
+looked like the second project had taken over the first.
+
+It had not. Switching projects remounts the terminal, which closes its socket, and a closing socket killed the shell.
+That behaviour was deliberate and documented — "a closed tab, a reload, or a dropped connection must take the shell
+with it — otherwise it keeps running against the repo with nobody watching" — and it was wrong for the only thing this
+terminal is really for. In a tool whose entire premise is working across twenty repositories at once, a shell that
+cannot survive changing project is barely a shell.
+
+So sessions are keyed by project and survive detachment. A closing socket now calls `detach`, which only stops
+forwarding output; `dispose` happens on an explicit stop and on shutdown.
+
+The reasoning that made the old rule right is kept rather than discarded: a process nobody can reach is a leak, and a
+process you started, can see, and can stop is not. Every shell is now visible in the project it belongs to, with a
+Stop button beside Clear and a "live" badge when the panel reattached to something already running — otherwise output
+above the prompt looks like a bug rather than a server that kept going. `disposeAll` on shutdown is unchanged, and a
+test asserts it.
+
+Reattaching replays the shell's recent output, which is what makes it useful rather than merely alive: coming back to a
+project shows its server still logging. Half a megabyte per session, trimmed from the front, sent as an ordinary output
+message so the client needs no separate path — xterm renders escape codes identically whether they arrive live or from
+a buffer. Twenty idle sessions cost ten megabytes at worst.
+
+Two smaller decisions fell out. A second client attaching **takes over** rather than sharing, because two windows
+interleaving keystrokes into one PTY reads as a haunted terminal — and `detach` takes the handlers it expects to
+remove, so a socket closing late cannot silence the client that replaced it. Choosing a different shell profile
+restarts the session, since picking another profile is a request for a different shell rather than for the old one to
+carry on.
+
+Verified against the reported scenario before writing any test: A's ticker went from 1 tick to 12 while a socket for B
+was open and closed, reattached with `restored=true`, and B's output never appeared in A's.
+
+**Three things went wrong in the tests, all mine rather than the code's.**
+
+Cleanup deleted the temp working directory immediately after `dispose`, and Windows keeps a directory locked while it
+is a live process's cwd — seven EBUSY failures that masked whether the assertions had passed at all. Removal now
+retries briefly and gives up quietly.
+
+Readiness waited for a `$` prompt. The default profile here is Windows PowerShell, whose prompt is `PS C:\...>`, so
+every one of those waits timed out. Prompts, quoting and `echo` semantics all differ across PowerShell, cmd and bash,
+so the tests now signal through a Node one-liner, which behaves identically in all three and is guaranteed present.
+
+And the marker never matched: `console.log('TICK', n)` colourises the number, because node applies colour when stdout
+is a TTY and a PTY is one — the output was `TICK <ESC>[33m2`. Concatenating into one token fixed it. That also
+explained a second failure that looked unrelated, where a leaked session made a later test count three shells instead
+of two: the leak came from a `dispose` sitting after the failing assertion instead of in `finally`.

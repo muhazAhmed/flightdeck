@@ -225,12 +225,20 @@ and Git Bash all ran. WSL reported `ready` and the distro then failed to mount
 surfaced verbatim in the terminal with exit code -1, which is the correct behaviour: detection can see
 that WSL is installed, not that it will start.
 
-**Disposal is the load-bearing part.** `close` and `error` both dispose, and shutdown walks the whole
-map — a shell that outlives its socket keeps running against the repository with nobody attached.
-Verified by terminating two sockets without a close handshake and confirming both shells were gone.
+**Sessions are keyed by project and outlive their socket.** `close` and `error` call `detach`, which stops forwarding
+output and leaves the shell running; only an explicit `{type:"stop"}` and shutdown dispose. This reverses an earlier
+decision — see DECISIONS.md — because switching projects remounts the terminal, and killing the shell there took down
+whatever dev server had just been started.
 
-Reconnecting starts a **fresh** shell rather than reattaching: a PTY holds no replayable history, so
-pretending to resume would present an empty screen mid-session.
+Reattaching replays the session's recent output (half a megabyte, trimmed from the front) as an ordinary `output`
+message, and `ready` carries `restored: true` so the UI can say the shell was already running. A second client
+attaching takes over rather than sharing, since two windows writing into one PTY interleave keystrokes.
+
+Choosing a different shell profile restarts the session rather than reusing it.
+
+Verified against the reported bug: a ticker in project A went from 1 to 12 ticks while a socket for project B opened
+and closed, reattached with `restored: true`, and B's output never reached A. `disposeAll` on shutdown is unchanged and
+covered by a test.
 
 `POST /api/git/stash-drop` `{projectId, index, expectSubject}` -> `GitStatus`
 
@@ -296,6 +304,28 @@ Parsing quirks, each verified against real git output in `test/history.test.ts`:
 - An empty repository makes `git log` fail; that is "no commits yet", not an error.
 - The commit body is fetched as its own `--format=%b` call, because a message can contain the separator the
   format string uses.
+
+### Project scripts
+
+`GET /api/scripts?projectId=` -> `{manager, scripts: [{name, command, run}], suggested}`
+
+Read from `package.json` on every request, so a script added while the server runs is picked up. The package manager
+comes from the lockfile — `pnpm-lock.yaml`, `bun.lock`, `yarn.lock`, else npm — checked most-specific first, because a
+repository mid-migration often still carries a stale `package-lock.json`. `run` is already spelled for that manager,
+and only yarn omits the word `run`.
+
+`suggested` is the first of `dev`, `start`, `develop`, `serve` that exists: a project with both `dev` and `start`
+means `dev` for local work, since `start` is usually the production entry point.
+
+Nothing here executes anything. **The command is typed into the terminal**, which is the design rather than a
+shortcut: a dev server prints continuously, is stopped with `Ctrl+C` and should die with its shell, so scrollback,
+colour and signals all behave exactly as they do when typed by hand. That is the opposite trade-off from the build
+trigger, which runs server-side precisely to avoid a shell — there the command is fixed and its result is a git
+state; here it is a long-running process whose log is the point.
+
+A missing, unreadable or malformed `package.json` returns an empty list rather than an error: plenty of repositories
+are not Node projects, and the button simply does not appear.
+
 
 ### Slash commands
 

@@ -23,6 +23,14 @@ interface WorkspaceState {
   changesCollapsed: boolean;
   paletteOpen: boolean;
   terminalOpen: boolean;
+  /**
+   * A command waiting to be typed into the terminal.
+   *
+   * A queue of one, because the terminal may not be open yet: `runInTerminal` opens the drawer and leaves the command
+   * here, and the terminal types it once its socket is ready and clears it. Without the queue the command would be
+   * written to a socket that does not exist yet and vanish.
+   */
+  pendingCommand: string | null;
 
   selectProject: (projectId: string | null) => void;
   selectChat: (chatId: string | null) => void;
@@ -34,6 +42,9 @@ interface WorkspaceState {
   setPaletteOpen: (open: boolean) => void;
   toggleTerminal: () => void;
   setTerminalOpen: (open: boolean) => void;
+  /** Open the terminal and type `command` into it, exactly as if it had been typed by hand. */
+  runInTerminal: (command: string) => void;
+  clearPendingCommand: () => void;
 }
 
 export const useWorkspace = create<WorkspaceState>((set) => ({
@@ -44,6 +55,7 @@ export const useWorkspace = create<WorkspaceState>((set) => ({
   changesCollapsed: false,
   paletteOpen: false,
   terminalOpen: false,
+  pendingCommand: null,
 
   // Changing project always clears the chat: a chat id from another project would point
   // the transcript at one repo and the Changes panel at a different one.
@@ -55,5 +67,7 @@ export const useWorkspace = create<WorkspaceState>((set) => ({
   toggleChanges: () => set((s) => ({ changesCollapsed: !s.changesCollapsed })),
   setPaletteOpen: (paletteOpen) => set({ paletteOpen }),
   toggleTerminal: () => set((s) => ({ terminalOpen: !s.terminalOpen })),
-  setTerminalOpen: (terminalOpen) => set({ terminalOpen })
+  setTerminalOpen: (terminalOpen) => set({ terminalOpen }),
+  runInTerminal: (command) => set({ terminalOpen: true, pendingCommand: command }),
+  clearPendingCommand: () => set({ pendingCommand: null })
 }));

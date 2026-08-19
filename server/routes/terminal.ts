@@ -8,7 +8,6 @@
  * an exit code without inventing a framing scheme. Terminal output is human-paced; the overhead does
  * not matter at this scale.
  */
-import { randomUUID } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
 import type { TerminalClientMessage, TerminalServerMessage } from '@shared/types';
 import * as pty from '../pty.js';
@@ -45,9 +44,14 @@ export async function terminalRoutes(app: FastifyInstance): Promise<void> {
         return;
       }
 
-      // One id per socket. A reconnecting client gets a fresh shell rather than reattaching: a PTY
-      // holds no replayable history, so pretending to resume would show an empty screen mid-session.
-      const id = randomUUID();
+      /*
+       * Keyed by project, not by socket.
+       *
+       * This is what stops a project switch from killing a running dev server: the terminal remounts, this socket
+       * closes, and the shell carries on. Reattaching replays what it printed in the meantime, so coming back to a
+       * project shows its server still logging rather than a blank prompt.
+       */
+      const key = project.id;
 
       // Requested profile, else the saved preference, else the best one detected. An unknown id falls
       // through to the default rather than erroring: a profile can vanish when a shell is uninstalled,
@@ -55,18 +59,21 @@ export async function terminalRoutes(app: FastifyInstance): Promise<void> {
       const requested = req.query.shell ?? state.read().settings?.terminalShell;
       const profile = shells.find(requested) ?? shells.defaultProfile();
 
-      try {
-        pty.start(id, project.path, profile, {
-          onData: (chunk) => send({ type: 'output', data: chunk }),
-          onExit: (code) => {
-            send({ type: 'exit', code });
-            try {
-              socket.close();
-            } catch {
-              /* already closing */
-            }
+      const handlers: pty.PtyHandlers = {
+        onData: (chunk) => send({ type: 'output', data: chunk }),
+        onExit: (code) => {
+          send({ type: 'exit', code });
+          try {
+            socket.close();
+          } catch {
+            /* already closing */
           }
-        });
+        }
+      };
+
+      let attached;
+      try {
+        attached = pty.attach(key, project.path, profile, handlers);
       } catch (err) {
         send({
           type: 'error',
@@ -82,8 +89,13 @@ export async function terminalRoutes(app: FastifyInstance): Promise<void> {
         shell: profile.label,
         shellId: profile.id,
         cwd: project.path,
-        scrollback: pty.SCROLLBACK_LIMIT
+        scrollback: pty.SCROLLBACK_LIMIT,
+        restored: attached.restored
       });
+
+      // Replayed as ordinary output, so the client needs no special path for it: xterm renders escape codes the
+      // same whether they arrive live or from a buffer.
+      if (attached.history.length > 0) send({ type: 'output', data: attached.history });
 
       socket.on('message', (raw: Buffer | string) => {
         let message: TerminalClientMessage;
@@ -92,14 +104,22 @@ export async function terminalRoutes(app: FastifyInstance): Promise<void> {
         } catch {
           return;
         }
-        if (message.type === 'input') pty.write(id, message.data);
-        else if (message.type === 'resize') pty.resize(id, message.cols, message.rows);
+        if (message.type === 'input') pty.write(key, message.data);
+        else if (message.type === 'resize') pty.resize(key, message.cols, message.rows);
+        // An explicit stop, since a closing socket no longer kills the shell. This is the only path that does.
+        else if (message.type === 'stop') pty.dispose(key);
       });
 
-      // The important line in this file. A closed tab, a reload, or a dropped connection must take
-      // the shell with it — otherwise it keeps running against the repo with nobody watching.
-      socket.on('close', () => pty.dispose(id));
-      socket.on('error', () => pty.dispose(id));
+      /*
+       * A closing socket detaches; it does not kill.
+       *
+       * The opposite of what this used to do, and the reason is in pty.ts: a dev server must survive the terminal
+       * being remounted by a project switch or a reload. `detach` is given these handlers so a stale socket cannot
+       * silence a session a newer client has since claimed. Shells still die with the server, and can be stopped
+       * explicitly from the UI.
+       */
+      socket.on('close', () => pty.detach(key, handlers));
+      socket.on('error', () => pty.detach(key, handlers));
     }
   );
 }

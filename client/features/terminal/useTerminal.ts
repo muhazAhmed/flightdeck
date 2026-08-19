@@ -3,14 +3,26 @@ import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebglAddon } from '@xterm/addon-webgl';
 import type { TerminalServerMessage } from '@shared/types';
+import { useWorkspace } from '@/store/workspace';
 
 export interface TerminalStatus {
   state: 'connecting' | 'ready' | 'exited' | 'error';
   shell: string | null;
   /** Which profile actually started — the server may fall back if the requested one is gone. */
   shellId: string | null;
+  /** True when this attached to a shell that was already running, rather than starting one. */
+  restored: boolean;
   message: string | null;
 }
+
+/**
+ * What a shell reads as "the user pressed Enter".
+ *
+ * Built from its code point on purpose: written as a literal in a template string it is an invisible control
+ * character, and the first tool to normalise line endings turns it into CRLF or removes it — after which a queued
+ * command is typed into the prompt and never runs.
+ */
+const ENTER = String.fromCharCode(13);
 
 /** Read a colour token off the document so the terminal repaints with the app's theme. */
 function token(name: string): string {
@@ -52,10 +64,14 @@ export function useTerminal(
   const socketRef = useRef<WebSocket | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
 
+  const pendingCommand = useWorkspace((s) => s.pendingCommand);
+  const clearPendingCommand = useWorkspace((s) => s.clearPendingCommand);
+
   const [status, setStatus] = useState<TerminalStatus>({
     state: 'connecting',
     shell: null,
     shellId: null,
+    restored: false,
     message: null
   });
 
@@ -146,7 +162,13 @@ export function useTerminal(
       }
       switch (message.type) {
         case 'ready':
-          setStatus({ state: 'ready', shell: message.shell, shellId: message.shellId, message: null });
+          setStatus({
+            state: 'ready',
+            shell: message.shell,
+            shellId: message.shellId,
+            restored: message.restored,
+            message: null
+          });
           requestAnimationFrame(syncSize);
           break;
         case 'output':
@@ -154,11 +176,23 @@ export function useTerminal(
           settled.current?.();
           break;
         case 'exit':
-          setStatus({ state: 'exited', shell: null, shellId: null, message: `Shell exited (${message.code})` });
+          setStatus({
+            state: 'exited',
+            shell: null,
+            shellId: null,
+            restored: false,
+            message: `Shell exited (${message.code})`
+          });
           terminal.writeln(`\r\n[2m— shell exited with code ${message.code} —[0m`);
           break;
         case 'error':
-          setStatus({ state: 'error', shell: null, shellId: null, message: message.detail ?? message.message });
+          setStatus({
+            state: 'error',
+            shell: null,
+            shellId: null,
+            restored: false,
+            message: message.detail ?? message.message
+          });
           terminal.writeln(`\r\n[31m${message.message}[0m`);
           break;
       }
@@ -169,6 +203,7 @@ export function useTerminal(
         state: 'error',
         shell: null,
         shellId: null,
+        restored: false,
         message: 'Lost the connection to the Flight Deck server.'
       });
 
@@ -216,8 +251,39 @@ export function useTerminal(
     syncSize();
   }, [appearance.fontSize, appearance.cursorBlink, syncSize]);
 
+  /**
+   * Type a queued command once the shell is ready.
+   *
+   * Sent as input rather than run server-side, deliberately: the point of this button is that the output lands in
+   * your terminal and `Ctrl+C` stops it, exactly as if you had typed it. That is the opposite trade-off from the
+   * build trigger, which must not go through a shell — there the command is fixed and its result is a git state; here
+   * the command is a long-running process whose log you want to watch.
+   *
+   * Cleared as soon as it is written, so a re-render cannot type it twice.
+   */
+  useEffect(() => {
+    if (!pendingCommand || status.state !== 'ready') return;
+    const socket = socketRef.current;
+    if (socket?.readyState !== WebSocket.OPEN) return;
+
+    socket.send(JSON.stringify({ type: 'input', data: pendingCommand + ENTER }));
+    clearPendingCommand();
+    terminalRef.current?.focus();
+  }, [pendingCommand, status.state, clearPendingCommand]);
+
+  /**
+   * Kill this project's shell.
+   *
+   * Needed because a closing socket now only detaches: without this there would be no way to stop a wedged shell
+   * short of restarting the server. The socket is left alone — the server reports the exit through it.
+   */
+  const stop = useCallback(() => {
+    const socket = socketRef.current;
+    if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ type: 'stop' }));
+  }, []);
+
   const focus = useCallback(() => terminalRef.current?.focus(), []);
   const clear = useCallback(() => terminalRef.current?.clear(), []);
 
-  return { containerRef, status, focus, clear, syncSize };
+  return { containerRef, status, focus, clear, stop, syncSize };
 }

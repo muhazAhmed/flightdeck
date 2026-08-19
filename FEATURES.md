@@ -19,6 +19,7 @@ What the tool does, grouped by area, each tagged with the phase it lands in.
 | `Ctrl+K` jump to any project or chat | **done** | The real answer to "twenty projects is hard to manage". Two keystrokes and a few letters. |
 | Per-project default permission mode | **partly** | Stored per project and seeded from settings when a project is added. **No per-project UI to change it afterwards** — the route accepts it, nothing calls it. |
 | Git identity switcher | **done** | Shows who the next commit will be attributed to, right above the commit box, and switches in one click. Writes `--local` only, so the machine default is never changed. Saved identities persist for reuse. |
+| Run a project's scripts | **done** | A play button in the chat header runs the project's start script — `dev`, or `start` when there is no `dev` — with a dropdown listing every script and what it actually does. Typed into the terminal, so the log lands where you expect and `Ctrl+C` stops it. Package manager comes from the lockfile, so a pnpm repo is not run with npm. Absent for projects with nothing to run. |
 | Per-project verify command | P3 | `npm run build`, `npm test`, `npm run typecheck` — one click, output in a panel. The `verifyCommand` field already exists on the project route; nothing sets or runs it. |
 | Per-project `CLAUDE.md` editor | P3 | Edit the instructions the agent reads, without leaving the tool. |
 | Project groups / tags | Later | Only if the flat list actually becomes unwieldy. |
@@ -77,9 +78,9 @@ What the tool does, grouped by area, each tagged with the phase it lands in.
 |---|---|---|
 | Plain shell per project | **done** | `node-pty` + `xterm.js` over a WebSocket, opened in the project's folder. Sits at the bottom of the centre column, drag-resizable, `Ctrl+J`. Profile picker lists the shells actually detected on the machine — PowerShell, cmd, Git Bash, each WSL distro; `$SHELL`/zsh/bash/fish elsewhere. Choice persists in settings; `FLIGHTDECK_SHELL` overrides. |
 | WebGL renderer, capped scrollback | **done** | 5000 lines, WebGL with a DOM fallback when no GL context is available. |
-| Dispose PTY on disconnect | **done** | Verified: two shells, sockets terminated without a close handshake, both processes gone. |
+| One shell per project, surviving a switch | **done** | A shell belongs to its project and keeps running when you switch away — a dev server started in one project stays up while you work in another, and coming back replays what it printed. Closing the panel does not stop it; a Stop button does, and every shell dies with the server. |
 | Loaded on demand | **done** | xterm is ~450 kB, so it is a lazy chunk — the terminal is opt-in and most sessions never open one. |
-| Multiple terminals per project | Later | One is enough to start. |
+| Multiple terminals per project | Later | One per project is enough to start — and since shells now persist per project, several projects can run servers at once. Tabs within a project are the remaining gap. |
 | The agent getting a PTY | **No** | The agent uses its own Bash tool; output appears as a tool card. Keeps the two systems unable to break each other. |
 
 ## Shell, UX, and feedback

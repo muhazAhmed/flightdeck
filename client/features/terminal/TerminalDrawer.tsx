@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Eraser, Rocket, X } from 'lucide-react';
+import { Eraser, Rocket, Square, X } from 'lucide-react';
 import type { Project } from '@shared/types';
 import { ConfirmDialog, type ConfirmRequest } from '@/shared/ui/ConfirmDialog';
 import { EmptyState } from '@/shared/ui/EmptyState';
@@ -52,7 +52,7 @@ export function TerminalDrawer({
   onClose
 }: TerminalDrawerProps) {
   const { profiles, selectedId } = useShellProfiles(shellId);
-  const { containerRef, status, focus, clear } = useTerminal(
+  const { containerRef, status, focus, clear, stop } = useTerminal(
     project?.id ?? null,
     selectedId,
     { fontSize, cursorBlink },
@@ -85,6 +85,18 @@ export function TerminalDrawer({
           onSelect={onShellChange}
         />
         <span className="truncate font-mono text-[11.5px] text-text-muted">{project.name}</span>
+
+        {/* The shell outlives this drawer now, so whether it was already running is worth saying: it explains why
+            there is output above the prompt, and why closing the panel did not stop the dev server. */}
+        {status.restored ? (
+          <span
+            title="This shell was already running — it kept going while you were elsewhere"
+            className="flex shrink-0 items-center gap-1 rounded border border-border-subtle px-1 text-[10.5px] text-text-muted"
+          >
+            <span className="size-1.5 rounded-full bg-success" />
+            live
+          </span>
+        ) : null}
 
         {status.state !== 'ready' ? (
           <span
@@ -120,6 +132,23 @@ export function TerminalDrawer({
             }
           />
           <IconButton label="Clear the terminal" icon={<Eraser size={13} />} onClick={clear} />
+          {/* Closing the drawer leaves the shell running, so stopping it has to be its own action. */}
+          <IconButton
+            label="Stop this shell — kills whatever is running in it"
+            tone="danger"
+            icon={<Square size={12} />}
+            onClick={() =>
+              setConfirm({
+                title: `Stop the shell in ${project.name}?`,
+                description:
+                  'Kills the shell and anything running in it, including a dev server. Closing this panel does not — the shell keeps running so you can switch projects and come back.',
+                files: [status.shell ?? 'shell'],
+                confirmLabel: 'Stop shell',
+                tone: 'danger',
+                onConfirm: stop
+              })
+            }
+          />
           <IconButton label="Close the terminal (Ctrl+J)" icon={<X size={14} />} onClick={onClose} />
         </span>
       </header>

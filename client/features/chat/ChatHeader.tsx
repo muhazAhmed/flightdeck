@@ -8,6 +8,7 @@ import { cn } from '@/lib/cn';
 import { clockTime } from '@/lib/format';
 import { detailOf, messageOf } from '@/lib/http';
 import { chatsApi } from './api';
+import { RunScriptButton } from './RunScriptButton';
 
 interface ChatHeaderProps {
   chat: Chat;
@@ -79,6 +80,8 @@ export function ChatHeader({ chat, project, activeModel, rateLimit, onChatChange
       </div>
 
       <div className="ml-auto flex shrink-0 items-center gap-2">
+        <RunScriptButton projectId={project.id} />
+
         {rateLimit?.resetsAt ? (
           <span
             title={`${rateLimit.rateLimitType ?? 'quota'} window resets at ${clockTime(rateLimit.resetsAt)}`}

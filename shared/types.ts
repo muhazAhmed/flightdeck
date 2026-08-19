@@ -88,10 +88,20 @@ export interface ShellProfile {
 
 export type TerminalClientMessage =
   | { type: 'input'; data: string }
-  | { type: 'resize'; cols: number; rows: number };
+  | { type: 'resize'; cols: number; rows: number }
+  /** Kill the project's shell. The only thing that does, now that a closing socket only detaches. */
+  | { type: 'stop' };
 
 export type TerminalServerMessage =
-  | { type: 'ready'; shell: string; shellId: string; cwd: string; scrollback: number }
+  | {
+      type: 'ready';
+      shell: string;
+      shellId: string;
+      cwd: string;
+      scrollback: number;
+      /** True when an already-running shell was reattached rather than a new one started. */
+      restored: boolean;
+    }
   | { type: 'output'; data: string }
   | { type: 'exit'; code: number }
   | { type: 'error'; message: string; detail?: string };
@@ -189,6 +199,23 @@ export const DEFAULT_SETTINGS: Settings = {
   checkForUpdates: true,
   lastProjectId: null
 };
+
+// ─── Project scripts ─────────────────────────────────────────────────────
+
+export interface ScriptEntry {
+  name: string;
+  /** What the script does, from package.json — shown so a name like `dev:all` is not a guess. */
+  command: string;
+  /** The command to type, already spelled for the project's package manager. */
+  run: string;
+}
+
+export interface ProjectScripts {
+  manager: 'npm' | 'pnpm' | 'yarn' | 'bun';
+  scripts: ScriptEntry[];
+  /** The script that means "start this project", or null when there is none. */
+  suggested: string | null;
+}
 
 // ─── Slash commands ──────────────────────────────────────────────────────
 
