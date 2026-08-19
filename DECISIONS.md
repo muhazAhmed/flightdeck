@@ -1182,3 +1182,49 @@ chunk CRCs, IHDR fields, and inflated size against `height x (width x 4 + 1)`.
 
 The mark carries its own dark haze rather than a transparent background (corner alpha 136), so it sits on a
 plain rounded tile in the sidebar; an accent-filled square behind it would fight the gradient.
+
+## A failed run has to say why
+
+Reported as "something is wrong with chat?": a message produced a summary line reading `0 turns · 112ms ·
+~$0.000` and nothing else. No error, no text, no explanation.
+
+The cause was in the reducer, not the CLI. A `result` record carries `subtype` (`success`,
+`error_during_execution`, `error_max_turns`) and, on failure, the explanation in `result` — and both were
+dropped on the floor. `reduce()` set the summary and moved on, so a dead run rendered as a tidy line of
+statistics. That is precisely the "something went wrong" this project forbids, arrived at by omission.
+
+Now a `done` with `isError` raises a real error carrying the CLI's own words, and the quieter case is covered
+too: a run that reports success but produced no assistant text and zero turns says so, and names the usual
+causes (a blocking hook, a session that would not resume, a rejected argument) rather than leaving an empty
+transcript under a summary.
+
+Three theories were tested against the real CLI before writing any of this, and all three were wrong —
+`--add-dir` does not break `--resume`, resuming a session that another process is holding works, and the
+import path already sets `lastMessageAt` so the first message resumes rather than claiming the id. Which is
+the point of the fix: the tool has to report what actually happened rather than have someone guess at it
+afterwards.
+
+## Usage from transcripts, and the cost column that does not exist
+
+"Why can't I see the usage, especially for this project after this long conversation?" Because `usage.jsonl`
+only records runs Flight Deck spawned. The conversation in question was a Claude Code session in an editor:
+same quota, same repository, invisible here.
+
+Transcripts fix it. Every assistant entry carries `message.usage` with real token counts and a real model,
+and sessions are found by the CLI's own encoding of the cwd, so anything run in a project's folder counts.
+On this machine that surfaced 17 sessions for one project — 1,623 assistant messages and 1.8M output tokens,
+of which one session was 1,558 messages on its own.
+
+**There is no cost in a transcript.** `total_cost_usd` lives in the `result` record, which `-p` writes to
+stdout and never to the file. Two honest options existed: price the tokens with a built-in table, or report
+tokens and say cost is unavailable. A price table would be wrong the day rates change and would make the one
+number someone might act on a guess, so transcript sessions are reported apart from the cost figures, with
+that stated in the UI.
+
+Performance mattered because the transcript that prompted this is 15 MB. Lines are prefiltered on the
+substring `"usage"` before parsing: 42ms to read, 38ms to scan, 175ms for all 17 sessions. `message.usage` is
+snake_case while the result record's `modelUsage` is camelCase — reading the wrong one returns a confident
+zero, so a test pins the casing.
+
+The page's empty state now requires BOTH sources to be empty. "Nothing recorded yet" while a 15 MB
+transcript sat on disk is what made this look broken rather than incomplete.

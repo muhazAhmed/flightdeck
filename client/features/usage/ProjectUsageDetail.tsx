@@ -1,18 +1,21 @@
 import { useCallback, useEffect, useState } from 'react';
 import { AlertTriangle, ArrowLeft, ExternalLink, Gauge, MessageSquare, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
-import type { ProjectUsageReport } from '@shared/types';
+import type { ProjectTranscriptUsage, ProjectUsageReport } from '@shared/types';
 import { Button } from '@/shared/ui/Button';
 import { Card } from '@/features/settings/controls/Card';
 import { Skeleton } from '@/shared/ui/Skeleton';
 import { cn } from '@/lib/cn';
 import { detailOf, messageOf } from '@/lib/http';
+import { TranscriptSessions } from './TranscriptCard';
 import { usageApi } from './api';
 import { money, percent, span, tokens } from './format';
 
 interface ProjectUsageDetailProps {
   projectId: string;
   days: number;
+  /** Transcript-derived sessions for this project, or null when there are none. */
+  transcripts: ProjectTranscriptUsage | null;
   onBack: () => void;
   onOpenProject: (projectId: string) => void;
   onOpenChat: (projectId: string, chatId: string) => void;
@@ -37,6 +40,7 @@ function stamp(iso: string): string {
 export function ProjectUsageDetail({
   projectId,
   days,
+  transcripts,
   onBack,
   onOpenProject,
   onOpenChat
@@ -152,6 +156,10 @@ export function ProjectUsageDetail({
           )}
         </Card>
       </div>
+
+      {transcripts ? (
+        <TranscriptSessions sessions={transcripts.sessions} adopted={transcripts.adoptedSessionIds} />
+      ) : null}
 
       <Card title={`Runs${report.omittedRuns > 0 ? ` (newest ${report.runs.length})` : ''}`} icon={<Gauge size={14} />}>
         {report.runs.length === 0 ? (

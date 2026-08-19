@@ -230,6 +230,38 @@ export interface UsageByDay extends UsageTotals {
   day: string;
 }
 
+/**
+ * One session as found in Claude Code's own transcripts.
+ *
+ * Tokens are real; there is deliberately no cost field, because a transcript does not contain one and
+ * pricing it here would turn the number people act on into a guess.
+ */
+export interface TranscriptSession {
+  sessionId: string;
+  model: string;
+  /** Assistant messages, which is the only run-like unit a transcript offers. */
+  messages: number;
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  cacheCreationTokens: number;
+  firstAt: string | null;
+  lastAt: string;
+}
+
+/** Transcript-derived usage for one project. */
+export interface ProjectTranscriptUsage {
+  projectId: string;
+  name: string;
+  sessions: TranscriptSession[];
+  messages: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  lastAt: string | null;
+  /** True when a session id also appears in a Flight Deck chat, so the two views can be reconciled. */
+  adoptedSessionIds: string[];
+}
+
 /** One run, as the per-project detail table lists it. */
 export interface UsageRunRow {
   at: string;
@@ -411,6 +443,13 @@ export interface DoneEvent {
   denials: unknown[];
   /** Tokens and model for this run, when the CLI reported them. */
   usage: RunUsage | null;
+  /**
+   * The CLI's own classification: `success`, or something like `error_max_turns` /
+   * `error_during_execution`. The only machine-readable clue about *why* a run produced nothing.
+   */
+  subtype: string | null;
+  /** Set when the failure came from the API rather than the CLI. */
+  apiErrorStatus: string | null;
 }
 
 /**

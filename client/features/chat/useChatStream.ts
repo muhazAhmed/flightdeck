@@ -35,6 +35,10 @@ interface StreamState {
   session: SessionEvent | null;
 }
 
+/** Blank line between parts of an error detail. Named because an escaped newline inside a nested
+ *  template is exactly the thing that gets mangled by tooling in this codebase. */
+const PARAGRAPH = '\n\n';
+
 const IDLE: StreamState = {
   blocks: [],
   running: false,
@@ -100,7 +104,7 @@ function reduce(previous: StreamState, events: UiEvent[]): StreamState {
       case 'error':
         error = { message: event.message, detail: event.detail };
         break;
-      case 'done':
+      case 'done': {
         running = false;
         summary = {
           isError: event.isError,
@@ -109,7 +113,39 @@ function reduce(previous: StreamState, events: UiEvent[]): StreamState {
           costUsd: event.costUsd,
           denials: event.denials.length
         };
+
+        /*
+         * A failed run explains itself in `result` and `subtype`, and both used to be dropped here — so a
+         * run that died produced a summary line reading "0 turns · 112ms" and nothing else, which is
+         * exactly the "something went wrong" this project forbids.
+         *
+         * Also covers the quieter case: the CLI reports success but produced no assistant text at all.
+         * That is not an error it will explain, and an empty transcript with a summary under it looks like
+         * the app lost the reply.
+         */
+        const producedText = blocks.some((block) => block.kind === 'text' && block.text.trim().length > 0);
+        if (event.isError) {
+          error = {
+            message: event.subtype && event.subtype !== 'success' ? `Run failed: ${event.subtype}` : 'The run failed.',
+            detail:
+              [event.result, event.apiErrorStatus ? `API status: ${event.apiErrorStatus}` : null]
+                .filter(Boolean)
+                .join(PARAGRAPH) || undefined
+          };
+        } else if (!producedText && event.numTurns === 0) {
+          error = {
+            message: 'The run ended without doing anything.',
+            detail: [
+              event.subtype ? `The CLI reported: ${event.subtype}` : null,
+              event.result || null,
+              'Nothing was sent to the model — 0 turns. A blocking hook, a session the CLI would not resume, or a rejected argument all look like this.'
+            ]
+              .filter(Boolean)
+              .join(PARAGRAPH)
+          };
+        }
         break;
+      }
       case 'session':
         session = event;
         break;
@@ -233,8 +269,11 @@ export function useChatStream(chatId: string | null, onFilesTouched?: () => void
             durationMs: null,
             costUsd: null,
             denials: [],
-            // A client-side failure consumed nothing the CLI could report on.
-            usage: null
+            // A client-side failure consumed nothing the CLI could report on, and carries no CLI
+            // classification either — the message beside it is the whole explanation.
+            usage: null,
+            subtype: null,
+            apiErrorStatus: null
           });
           return;
         }
@@ -279,8 +318,11 @@ export function useChatStream(chatId: string | null, onFilesTouched?: () => void
             durationMs: null,
             costUsd: null,
             denials: [],
-            // A client-side failure consumed nothing the CLI could report on.
-            usage: null
+            // A client-side failure consumed nothing the CLI could report on, and carries no CLI
+            // classification either — the message beside it is the whole explanation.
+            usage: null,
+            subtype: null,
+            apiErrorStatus: null
           });
       } finally {
         controller.current = null;

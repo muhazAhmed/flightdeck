@@ -255,6 +255,25 @@ can refer back to a file attached several turns earlier.
 Verified end to end: an 8x8 magenta PNG was uploaded, its path sent in a prompt, and the run's `Read`
 returned `isError=false` with the image as base64 — the model answered "Magenta."
 
+`GET /api/usage/transcripts` -> `{projects: ProjectTranscriptUsage[]}`
+
+Usage read out of Claude Code's own transcripts, so a conversation held in a terminal or an editor counts
+too. Sessions are located by the CLI's encoding of the cwd, so anything that ran in a project's folder is
+found whoever started it.
+
+**What a transcript contains, checked against a real 15 MB file:** every assistant entry carries
+`message.usage` in **snake_case** (`cache_read_input_tokens`), and the model on `message.model`. What it does
+NOT contain is any `result` record — `total_cost_usd` is written to stdout by `-p` and never to the file. So
+these sessions report tokens and **no cost**, and are kept out of the cost totals rather than priced by
+guesswork. A session that changed model mid-way is reported under whichever model wrote most of its messages.
+
+Lines are prefiltered on the substring `"usage"` before `JSON.parse`; on that 15 MB transcript the read took
+42ms and the scan 38ms, against 175ms for all 17 sessions of the busiest project. A half-written final line
+is normal in a live transcript and is skipped.
+
+`adoptedSessionIds` marks the sessions that are already chats in Flight Deck, so this list and the run list
+reconcile instead of looking like double counting.
+
 ### Usage (per-project cost and quota)
 
 `GET /api/usage?days=1|7|30|90|0` → `UsageReport` (0 means everything recorded)

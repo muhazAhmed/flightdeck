@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { AlertTriangle, Coins, Gauge, RefreshCw, Sparkles, X } from 'lucide-react';
 import { toast } from 'sonner';
-import type { UsageByProject, UsageReport } from '@shared/types';
+import type { ProjectTranscriptUsage, UsageByProject, UsageReport } from '@shared/types';
 import { Card } from '@/features/settings/controls/Card';
 import { EmptyState } from '@/shared/ui/EmptyState';
 import { IconButton } from '@/shared/ui/IconButton';
@@ -10,6 +10,7 @@ import { cn } from '@/lib/cn';
 import { clockTime, relativeTime } from '@/lib/format';
 import { detailOf, messageOf } from '@/lib/http';
 import { ProjectUsageDetail } from './ProjectUsageDetail';
+import { TranscriptCard } from './TranscriptCard';
 import { usageApi } from './api';
 import { money, percent, span, tokens } from './format';
 
@@ -45,6 +46,7 @@ export function UsagePage({ open, onOpenProject, onOpenChat, onClose }: UsagePag
   const [loading, setLoading] = useState(false);
   /** Which project is opened up. Null is the cross-project view. */
   const [detailFor, setDetailFor] = useState<string | null>(null);
+  const [transcripts, setTranscripts] = useState<ProjectTranscriptUsage[]>([]);
 
   const load = useCallback(async (range: number) => {
     setLoading(true);
@@ -61,7 +63,22 @@ export function UsagePage({ open, onOpenProject, onOpenChat, onClose }: UsagePag
     if (open) void load(days);
   }, [open, days, load]);
 
-  const empty = report !== null && report.totals.runs === 0;
+  // Independent of the range selector: a transcript has no run boundaries to filter by, and reading them
+  // is the slower of the two requests, so it is not repeated when the period changes.
+  useEffect(() => {
+    if (!open) return;
+    void (async () => {
+      try {
+        setTranscripts((await usageApi.transcripts()).projects);
+      } catch {
+        // The page is still useful without them; the log-based figures stand on their own.
+      }
+    })();
+  }, [open]);
+
+  // Empty only when BOTH sources are empty. Showing "nothing recorded" while transcripts sit on disk is
+  // what made this page look broken after a long conversation held outside Flight Deck.
+  const empty = report !== null && report.totals.runs === 0 && transcripts.length === 0;
 
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col overflow-y-auto bg-(--bg-base)">
@@ -108,6 +125,7 @@ export function UsagePage({ open, onOpenProject, onOpenChat, onClose }: UsagePag
           <ProjectUsageDetail
             projectId={detailFor}
             days={days}
+            transcripts={transcripts.find((p) => p.projectId === detailFor) ?? null}
             onBack={() => setDetailFor(null)}
             onOpenProject={onOpenProject}
             onOpenChat={onOpenChat}
@@ -144,6 +162,8 @@ export function UsagePage({ open, onOpenProject, onOpenChat, onClose }: UsagePag
             <Card title="By project" icon={<Coins size={14} />}>
               <ProjectTable projects={report.projects} onOpenProject={setDetailFor} />
             </Card>
+
+            <TranscriptCard projects={transcripts} onOpenProject={setDetailFor} />
 
             <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
               <Card title="By model" icon={<Sparkles size={14} />}>

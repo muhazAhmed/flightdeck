@@ -194,7 +194,9 @@ export function translate(record: unknown): UiEvent[] {
         durationMs: typeof record.duration_ms === 'number' ? record.duration_ms : null,
         costUsd: typeof record.total_cost_usd === 'number' ? record.total_cost_usd : null,
         denials: Array.isArray(record.permission_denials) ? record.permission_denials : [],
-        usage: readUsage(record)
+        usage: readUsage(record),
+        subtype: typeof record.subtype === 'string' ? record.subtype : null,
+        apiErrorStatus: typeof record.api_error_status === 'string' ? record.api_error_status : null
       }
     ];
   }

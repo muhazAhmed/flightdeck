@@ -5,9 +5,10 @@
  * file, so it stays instant however long the log gets.
  */
 import type { FastifyInstance } from 'fastify';
-import type { ProjectUsageReport, UsageReport } from '@shared/types';
+import type { ProjectTranscriptUsage, ProjectUsageReport, UsageReport } from '@shared/types';
 import * as state from '../state.js';
 import * as usage from '../usage.js';
+import { sessionsForProject } from '../transcriptUsage.js';
 import { badRequest } from '../errors.js';
 
 /** Ranges the UI offers. 0 means everything recorded. */
@@ -68,4 +69,34 @@ export async function usageRoutes(app: FastifyInstance): Promise<void> {
       });
     }
   );
+
+  /**
+   * Sessions found in Claude Code's own transcripts, per project.
+   *
+   * Covers work done outside Flight Deck — a long conversation in a terminal spends the same quota against
+   * the same repository, and `usage.jsonl` knows nothing about it. Tokens only: a transcript carries no
+   * cost, so these are reported apart from the cost totals rather than priced by guesswork.
+   */
+  app.get('/api/usage/transcripts', async (): Promise<{ projects: ProjectTranscriptUsage[] }> => {
+    const current = state.read();
+    const adopted = new Set(current.chats.map((chat) => chat.sessionId));
+
+    const projects = current.projects.map((project) => {
+      const sessions = sessionsForProject(project.path);
+      return {
+        projectId: project.id,
+        name: project.name,
+        sessions,
+        messages: sessions.reduce((sum, session) => sum + session.messages, 0),
+        outputTokens: sessions.reduce((sum, session) => sum + session.outputTokens, 0),
+        cacheReadTokens: sessions.reduce((sum, session) => sum + session.cacheReadTokens, 0),
+        lastAt: sessions[0]?.lastAt ?? null,
+        // Lets the UI mark which of these are already chats here, so the two lists reconcile.
+        adoptedSessionIds: sessions.filter((s) => adopted.has(s.sessionId)).map((s) => s.sessionId)
+      };
+    });
+
+    // Busiest first, and projects with no transcripts at all are dropped rather than listed as zeros.
+    return { projects: projects.filter((p) => p.sessions.length > 0).sort((a, b) => b.outputTokens - a.outputTokens) };
+  });
 }
