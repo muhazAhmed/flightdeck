@@ -232,6 +232,20 @@ Verified by terminating two sockets without a close handshake and confirming bot
 Reconnecting starts a **fresh** shell rather than reattaching: a PTY holds no replayable history, so
 pretending to resume would present an empty screen mid-session.
 
+`POST /api/git/stash-drop` `{projectId, index, expectSubject}` -> `GitStatus`
+
+Deletes a stash without applying it. **The one unrecoverable action in the git routes** — the reflog keeps the
+commit for a while but nothing in this UI can reach it.
+
+`stash drop` takes a position, and dropping one renumbers everything after it, so an index alone can name a
+different stash than the one the user clicked. The caller therefore sends the subject the row displayed, and the
+route re-reads the list and refuses on a mismatch: `STASH_MOVED` with what that position actually holds now, or
+`STASH_GONE` when the index is past the end. Verified against three real stashes — after dropping index 1, a
+repeat request for index 1 with the old subject was refused and nothing was dropped.
+
+The UI always confirms this one, regardless of the confirmation-level setting, and names the stash rather than a
+count.
+
 ### Commit history
 
 `GET /api/git/log?projectId=&limit=&skip=` → `{commits, hasMore}`

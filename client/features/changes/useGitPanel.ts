@@ -236,6 +236,20 @@ export function useGitPanel(projectId: string | null, revision: number) {
     [projectId, report]
   );
 
+  const stashDrop = useCallback(
+    async (index: number, subject: string) => {
+      if (!projectId) return false;
+      const ok = await run(() => gitApi.stashDrop(projectId, index, subject));
+      if (ok) {
+        toast.success('Stash dropped');
+        // Dropping renumbers the rest, so the list is re-read rather than spliced locally.
+        setStashes(await gitApi.stashList(projectId).catch(() => stashes));
+      }
+      return ok;
+    },
+    [projectId, run, stashes]
+  );
+
   const stashPop = useCallback(
     async (index: number) => {
       if (!projectId) return false;
@@ -262,6 +276,7 @@ export function useGitPanel(projectId: string | null, revision: number) {
     commit,
     stash,
     stashPop,
+    stashDrop,
     remote,
     mutations,
     /** For a checkout: the branch routes already return the post-switch status, so adopt it

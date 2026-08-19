@@ -60,7 +60,7 @@ What the tool does, grouped by area, each tagged with the phase it lands in.
 | Commit | **done** | Message box, commits staged or a chosen subset. |
 | Drafted commit message | **done** | Sparkle button in the message box reads the staged diff and writes a message: imperative subject under 72 chars, body only when the reason is not obvious. Lands in the box for editing — it never commits, and it warns if the diff was too large to send whole. |
 | Discard changes | **done** | Destructive — confirm names the exact file. |
-| Stash / stash pop / stash list | **done** | |
+| Stash / stash pop / stash list / drop | **done** | Stash with a message, restore, or delete without applying. Deleting always asks and names the stash, whatever the confirmation level, because it is the one action here with no way back — and the request is checked against the stash it was shown, since dropping one renumbers the rest. |
 | Live update while the agent works | **done** | Files appear in the panel as the agent edits, without waiting for the run to end. Driven by the stream's own tool events (debounced, 700ms with a 4s ceiling), so there is no polling and no watcher. Refreshes are quiet: no spinner, no error banner from a failed background read, and skipped outright while you are mid-stage or mid-commit. |
 | Trigger a build | **done** | Button in the terminal header: an empty commit plus a push, for pipelines that only run on new commits. Refuses when anything is staged — an empty commit would carry it along — and if the push fails it says the commit was made and how to remove it. |
 | Fetch / pull / push | **done** | Pull is `--ff-only` and refuses on a dirty tree; push is human-only, never forced, and shows the commit count before you confirm. |

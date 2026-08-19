@@ -10,6 +10,7 @@ import {
   Plus,
   RefreshCw,
   Sparkles,
+  Trash2,
   Undo2,
   X
 } from 'lucide-react';
@@ -148,6 +149,24 @@ export function ChangesPanel({ project, revision, confirmLevel }: ChangesPanelPr
       files: [subject],
       confirmLabel: 'Pop stash',
       onConfirm: () => void git.stashPop(index)
+    });
+  }
+
+  /**
+   * Dropping a stash is the one action here with no way back.
+   *
+   * `setConfirm` rather than `gate`, so it asks even when the confirmation level is "only destructive" — this IS
+   * the destructive one. Discard and force-delete are handled the same way.
+   */
+  function askStashDrop(index: number, subject: string) {
+    setConfirm({
+      title: 'Delete this stash?',
+      description:
+        'Deletes the stashed changes without applying them. This cannot be undone from Flight Deck — the entry is gone and its contents with it.',
+      files: [subject],
+      confirmLabel: 'Delete stash',
+      tone: 'danger',
+      onConfirm: () => void git.stashDrop(index, subject)
     });
   }
 
@@ -402,12 +421,20 @@ export function ChangesPanel({ project, revision, confirmLevel }: ChangesPanelPr
                 </span>
                 <span className="shrink-0 text-[11.5px] text-text-muted">{entry.when}</span>
                 <IconButton
-                  label="Pop this stash"
+                  label="Restore this stash — applies it and removes the entry"
                   tone="accent"
                   revealOnGroupHover
                   disabled={git.busy}
                   onClick={() => askStashPop(entry.index, entry.subject || entry.ref)}
                   icon={<ArchiveRestore size={13} />}
+                />
+                <IconButton
+                  label="Delete this stash without applying it"
+                  tone="danger"
+                  revealOnGroupHover
+                  disabled={git.busy}
+                  onClick={() => askStashDrop(entry.index, entry.subject || entry.ref)}
+                  icon={<Trash2 size={13} />}
                 />
               </div>
             ))}

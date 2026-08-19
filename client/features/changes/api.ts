@@ -45,6 +45,9 @@ export const gitApi = {
   stash: (projectId: string, message?: string, includeUntracked = true) =>
     http.post<GitStatus>('/api/git/stash', { projectId, message, includeUntracked }),
   stashPop: (projectId: string, index = 0) => http.post<GitStatus>('/api/git/stash-pop', { projectId, index }),
+  /** Deletes without applying. `expectSubject` is what the row displayed — the server refuses if the list moved. */
+  stashDrop: (projectId: string, index: number, expectSubject: string) =>
+    http.post<GitStatus>('/api/git/stash-drop', { projectId, index, expectSubject }),
 
   // Remote operations answer with git's own summary plus the fresh status. The remote and
   // branch are never sent from here — the server reads them from the repository's config,

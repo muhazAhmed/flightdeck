@@ -266,6 +266,57 @@ export async function gitRoutes(app: FastifyInstance): Promise<void> {
     }
   );
 
+  /**
+   * Delete a stash without applying it.
+   *
+   * The one genuinely unrecoverable action in this file. `git stash drop` leaves the commit in the reflog for a
+   * while, but nothing in this UI can reach it and no ordinary user will — so it is treated as permanent.
+   *
+   * INDICES SHIFT. Dropping `stash@{0}` renumbers every stash below it, so an index alone can silently name a
+   * different stash than the one on screen — after another stash is pushed from a terminal, or after a drop the
+   * list has not caught up with. The caller therefore sends the subject it displayed, and this refuses when the
+   * stash at that index no longer matches. Refusing is cheap; dropping the wrong one cannot be undone.
+   */
+  app.post<{ Body: { projectId?: string; index?: number; expectSubject?: string } }>(
+    '/api/git/stash-drop',
+    async (req, reply) => {
+      const git = repoFor(req.body?.projectId);
+      if (!git) return notFound(reply, 'No such project.');
+
+      const index = req.body?.index ?? 0;
+      if (!Number.isInteger(index) || index < 0) return badRequest(reply, 'Invalid stash index.');
+
+      const expected = req.body?.expectSubject;
+      if (typeof expected === 'string') {
+        let subjects: string[];
+        try {
+          const raw = await git.raw(['stash', 'list', '--format=%gs']);
+          subjects = raw
+            .split(/\r?\n/)
+            .map((line) => line.trim())
+            .filter(Boolean);
+        } catch (err) {
+          return serverError(reply, 'Could not read the stash list.', detailOf(err));
+        }
+
+        const actual = subjects[index];
+        if (actual === undefined) {
+          return badRequest(reply, 'That stash no longer exists.', 'STASH_GONE');
+        }
+        if (actual !== expected.trim()) {
+          return badRequest(
+            reply,
+            'The stash list has changed since it was shown.',
+            'STASH_MOVED',
+            `Position ${index} now holds "${actual}" rather than "${expected.trim()}". Nothing was dropped — reopen the list and try again.`
+          );
+        }
+      }
+
+      return mutate(reply, git, 'drop that stash', () => git.stash(['drop', `stash@{${index}}`]));
+    }
+  );
+
   app.post<{ Body: { projectId?: string; index?: number } }>('/api/git/stash-pop', async (req, reply) => {
     const git = repoFor(req.body?.projectId);
     if (!git) return notFound(reply, 'No such project.');

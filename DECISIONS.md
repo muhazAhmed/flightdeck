@@ -1416,3 +1416,21 @@ did not exist in that file — and the run came back green. A verification that 
 trap as a test that passes for the wrong reason, so the plant now asserts its own presence before the guard is
 run.
 """
+
+## Dropping a stash is checked against the stash you saw
+
+There was no way to delete a stash at all: the row offered restore and nothing else, so an unwanted stash could
+only be removed by applying it or by going to a terminal.
+
+`git stash drop` takes a position, and dropping one renumbers everything after it. That makes an index-only delete
+quietly dangerous: the list on screen goes stale the moment anything else touches the stashes, and the second
+click lands on a different stash than the first. Demonstrated in the test with real git — position 1 holds
+"second work", and after that drop position 1 holds "first work".
+
+So the request carries the subject the row displayed, and the route re-reads the list and refuses on a mismatch
+rather than dropping something the user never chose. Verified live against three real stashes: the repeat request
+came back with "Position 1 now holds ... rather than ..." and nothing was dropped.
+
+It always confirms, regardless of the confirmation-level setting, and the dialog names the stash. This is the one
+action in that panel with no way back — the reflog technically keeps the commit for a while, but nothing in this
+UI can reach it and no ordinary user will, so it is treated as permanent.
