@@ -923,3 +923,38 @@ Git Bash worked. WSL reported `ready`, then Ubuntu failed to mount with `E_ACCES
 the honest outcome: detection can prove WSL is installed, not that a distro will start, and the real
 error reaches the user verbatim. Another entry in the running theme that the interesting failures only
 appear against a real machine.
+
+## The Changes panel refreshes from the stream, not from a watcher
+
+Watching the file list react while the agent edits is most of the reason the two panels sit side by
+side, and until now the panel only refreshed when a run *ended*.
+
+The trigger is the agent stream itself: a `tool_result` for a writing tool bumps the same
+`gitRevision` that a finished run bumps. No `fs.watch`, no polling — a watcher on ~20 repos would fire
+on `node_modules`, `.git`, and every build artefact, and would need debouncing anyway. The events we
+already have say precisely when something was written.
+
+Three details that each would have been a bug:
+
+**`tool_result` carries no tool name.** Only `tool_start` does; results correlate by id. Matching on
+`event.name` inside the `tool_result` branch typechecks against the union and then matches nothing —
+"a test that passes for the wrong reason" territory, so the writer ids are remembered at `tool_start`.
+
+**The shell tool is not called `Bash` everywhere.** A real handshake on this machine advertised
+`Task, Edit, Glob, Grep, NotebookEdit, PowerShell, Read, Skill, WebFetch, WebSearch, Write` — and no
+`Bash` at all. A `Bash`-only writer set silently skipped a refresh after every shell command on
+Windows. Found by running it against a scratch repo; no unit test would have. Unknown names (MCP
+tools) count as read-only: the run ending always refreshes, so an unrecognised writer costs a delay,
+never a miss.
+
+**A refresh nobody asked for must look like nothing.** `refresh({quiet: true})` does not raise
+`loading` (which spins the Fetch button and reads as network work), does not replace a working panel
+with an error banner when a background read fails, and is skipped entirely while a mutation is in
+flight — adopting a status read that raced a stage or a commit would show the wrong list. Nothing is
+lost by skipping, because the run ending refreshes again.
+
+Debounced at 700ms with a **4s ceiling**. The ceiling is the part worth keeping: a plain trailing
+debounce fed an edit every 300ms would never fire once, and a long run would sit still through the
+whole thing. Verified against a real run — Edit, Write and PowerShell each triggered a refresh; two
+Reads did not.
+

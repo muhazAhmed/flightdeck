@@ -38,8 +38,8 @@ What the tool does, grouped by area, each tagged with the phase it lands in.
 | Search projects | **done** | Filters on name and path. `Ctrl+K` still reaches anything in two keystrokes. |
 | Staged / Unstaged tabs | **done** | With counts, and the panel follows the work — staging everything moves you to Staged, committing moves you back. |
 | History replay on reopen | **done** | Rendered from Claude Code's own transcript through the same reducer as the live stream, so a resumed chat is indistinguishable from one you watched. |
-| Rate-limit / quota chip | P2 | From `rate_limit_event`: window type and reset time. Know before starting something big. |
-| Run summary line | P2 | Turns, duration, notional cost, permission denials — from the `result` event. |
+| Rate-limit / quota chip | **done** | From `rate_limit_event`: window type and reset time, in the chat header. Know before starting something big. |
+| Run summary line | **done** | Turns, duration, notional cost and permission denials, from the `result` event. |
 | Sub-chats | P3 | A chat with `parentChatId`. Grouping in the sidebar; no special agent behaviour. |
 | Attach files and images | **done** | Paste a screenshot, drop files, or use the paperclip. Bytes are saved to `~/.flightdeck/attachments/` and the *path* is appended to the prompt, so the agent reads what it needs with its own Read tool — no truncation, and a 2 MB screenshot never becomes 2 MB of context. |
 | Slash commands and skills | P3 | `system/init` already lists what's available; surface them as autocomplete. |
@@ -58,7 +58,7 @@ What the tool does, grouped by area, each tagged with the phase it lands in.
 | Drafted commit message | **done** | Sparkle button in the message box reads the staged diff and writes a message: imperative subject under 72 chars, body only when the reason is not obvious. Lands in the box for editing — it never commits, and it warns if the diff was too large to send whole. |
 | Discard changes | P2 | Destructive — confirm names the exact file. |
 | Stash / stash pop / stash list | P2 | |
-| Live update while the agent works | P2 | Files appear in the panel as it edits. Half the appeal of the tool. |
+| Live update while the agent works | **done** | Files appear in the panel as the agent edits, without waiting for the run to end. Driven by the stream's own tool events (debounced, 700ms with a 4s ceiling), so there is no polling and no watcher. Refreshes are quiet: no spinner, no error banner from a failed background read, and skipped outright while you are mid-stage or mid-commit. |
 | Fetch / pull / push | **done** | Pull is `--ff-only` and refuses on a dirty tree; push is human-only, never forced, and shows the commit count before you confirm. |
 | Branch list, checkout, create, delete | **done** | Picker shows each branch's last commit and date. Checkout refuses on a dirty tree; creating a branch deliberately carries your changes. Delete refuses when commits exist nowhere else, and force is a separate confirmation. Remote branches check out as tracking branches. |
 | Commit history | P3 | Recent commits, click for the diff. |
@@ -87,7 +87,7 @@ What the tool does, grouped by area, each tagged with the phase it lands in.
 | Keyboard shortcuts | P1 | `Ctrl+K`, `Ctrl+Enter`, `Ctrl+B`, `Ctrl+Shift+G`, `Esc`. |
 | Empty / loading / disconnected states | P1 | Skeletons, not full-page spinners. Server-down is a persistent banner with retry. |
 | Concurrent-chat warning | P1 | Two chats in one project share one working tree — the UI says so instead of pretending otherwise. |
-| Elapsed time on long tool cards | P2 | A slow `npm ci` should read as working, not hung. |
+| Elapsed time on long tool cards | **done** | A slow `npm ci` reads as working, not hung. |
 | Settings page | **done** | Own left nav with every planned section listed; unbuilt ones visibly disabled. General and Behaviour are real. |
 | Light theme | **done** | A full light surface stack, measured, plus `color-scheme` so form controls and scrollbars follow. |
 | Accent colours | **done** | Seven, each a contrast-checked fill/bright pair with a light-theme companion. Green, amber and red are labelled where they collide with diff or status meaning. |

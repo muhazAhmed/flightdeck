@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { RateLimitEvent, SessionEvent, UiEvent } from '@shared/types';
+import { touchesWorkingTree } from './touchesWorkingTree';
 
 export interface ToolInvocation {
   id: string;
@@ -130,10 +131,18 @@ function reduce(previous: StreamState, events: UiEvent[]): StreamState {
  * already coalesces text over a 50ms window — this is the second half of that contract,
  * and both are load-bearing.
  */
-export function useChatStream(chatId: string | null) {
+export function useChatStream(chatId: string | null, onFilesTouched?: () => void) {
   const [state, setState] = useState<StreamState>(IDLE);
 
+  // Held in a ref so a caller passing an inline arrow does not re-create `applyQueued` — and with it
+  // the rAF batching — on every render.
+  const filesTouched = useRef(onFilesTouched);
+  filesTouched.current = onFilesTouched;
+
   const queue = useRef<UiEvent[]>([]);
+  // `tool_result` carries only the id it answers, so the writer set has to be matched at `tool_start`
+  // and remembered. Bounded by the number of tool calls in one chat, which is small.
+  const writerCalls = useRef(new Set<string>());
   const frame = useRef<number | null>(null);
   const controller = useRef<AbortController | null>(null);
 
@@ -150,10 +159,16 @@ export function useChatStream(chatId: string | null) {
     if (events.length === 0) return;
     queue.current = [];
     setState((previous) => reduce(previous, events));
+
+    // Once per frame at most, and only when a writing tool actually finished. The listener debounces
+    // further, because one Edit is usually followed by four more.
+    const wrote = events.some((event) => event.type === 'tool_result' && writerCalls.current.has(event.id));
+    if (wrote) filesTouched.current?.();
   }, []);
 
   const enqueue = useCallback(
     (event: UiEvent) => {
+      if (event.type === 'tool_start' && touchesWorkingTree(event.name)) writerCalls.current.add(event.id);
       queue.current.push(event);
       if (frame.current === null) frame.current = requestAnimationFrame(applyQueued);
     },
@@ -166,6 +181,7 @@ export function useChatStream(chatId: string | null) {
     controller.current = null;
     cancelFrame();
     queue.current = [];
+    writerCalls.current.clear();
     setState(IDLE);
   }, [chatId, cancelFrame]);
 
@@ -261,7 +277,10 @@ export function useChatStream(chatId: string | null) {
   }, []);
 
   /** Replace the transcript with replayed history. Same reducer as the live stream, so a
-   *  reopened chat is indistinguishable from one you just watched. */
+   *  reopened chat is indistinguishable from one you just watched.
+   *
+   *  Deliberately bypasses `enqueue`, so replaying a transcript full of Edits does not announce that
+   *  files were touched — that happened hours ago, and the panel already reflects it. */
   const hydrate = useCallback((events: UiEvent[]) => {
     setState(reduce(IDLE, events));
   }, []);

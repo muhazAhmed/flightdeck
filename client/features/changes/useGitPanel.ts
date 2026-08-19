@@ -32,17 +32,31 @@ export function useGitPanel(projectId: string | null, revision: number) {
   // from overwriting the diff they are now looking at.
   const diffToken = useRef(0);
 
+  // A live refresh must never adopt a status read that raced a mutation the user just triggered.
+  const busyRef = useRef(false);
+  busyRef.current = busy;
+
   const report = useCallback((err: unknown) => {
     toast.error(messageOf(err), { description: detailOf(err) });
   }, []);
 
-  const refresh = useCallback(async () => {
+  /**
+   * Read status and stashes.
+   *
+   * `quiet` is for refreshes the user did not ask for — the ones that fire while the agent is editing.
+   * They must not raise `loading`, because that spins the Fetch button and reads as "the tool is doing
+   * network work", and they are skipped outright while a mutation is in flight: adopting a status read
+   * that raced a stage or a commit would show the wrong list. Nothing is lost by skipping, since the
+   * run ending always triggers one more refresh.
+   */
+  const refresh = useCallback(async (options?: { quiet?: boolean }) => {
     if (!projectId) {
       setStatus(null);
       setStashes([]);
       return;
     }
-    setLoading(true);
+    if (options?.quiet && busyRef.current) return;
+    if (!options?.quiet) setLoading(true);
     try {
       const [nextStatus, nextStashes] = await Promise.all([
         gitApi.status(projectId),
@@ -52,15 +66,26 @@ export function useGitPanel(projectId: string | null, revision: number) {
       setStashes(nextStashes);
       setError(null);
     } catch (err) {
-      setError(messageOf(err));
+      // A failed background poll must not replace a working panel with an error banner; the next tick
+      // or the user's own refresh will say so if it is really broken.
+      if (!options?.quiet) setError(messageOf(err));
     } finally {
-      setLoading(false);
+      if (!options?.quiet) setLoading(false);
     }
   }, [projectId]);
 
+  // Loud on mount and whenever the project changes: this is the read the user is waiting for.
   useEffect(() => {
     void refresh();
-  }, [refresh, revision]);
+  }, [refresh]);
+
+  // Quiet for revision bumps — the agent touching files, or a run finishing. Skipped on the first
+  // pass so opening a project does not read status twice.
+  const firstRevision = useRef(revision);
+  useEffect(() => {
+    if (revision === firstRevision.current) return;
+    void refresh({ quiet: true });
+  }, [revision, refresh]);
 
   // Selection belongs to a project; carrying it across would show one repo's diff under
   // another repo's file list.

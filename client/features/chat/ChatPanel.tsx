@@ -20,10 +20,22 @@ interface ChatPanelProps {
   onCreateChat: () => void;
   onChatChanged: (chat: Chat) => void;
   onRunStateChange: (running: boolean) => void;
+  /** Fired when a tool that writes files finishes, so the Changes panel can refresh mid-run. */
+  onFilesTouched: () => void;
 }
 
-export function ChatPanel({ project, chat, onCreateChat, onChatChanged, onRunStateChange }: ChatPanelProps) {
-  const { blocks, running, error, summary, rateLimit, session, send, stop, hydrate } = useChatStream(chat?.id ?? null);
+export function ChatPanel({
+  project,
+  chat,
+  onCreateChat,
+  onChatChanged,
+  onRunStateChange,
+  onFilesTouched
+}: ChatPanelProps) {
+  const { blocks, running, error, summary, rateLimit, session, send, stop, hydrate } = useChatStream(
+    chat?.id ?? null,
+    onFilesTouched
+  );
   // Lets a suggestion card put text in the input rather than sending it blind, so it can be
   // edited first.
   const [draft, setDraft] = useState<string | null>(null);

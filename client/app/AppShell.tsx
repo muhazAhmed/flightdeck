@@ -13,6 +13,7 @@ import { ProjectSidebar } from '@/features/projects/ProjectSidebar';
 import { useProjects } from '@/features/projects/useProjects';
 import { SettingsPage } from '@/features/settings/SettingsPage';
 import { useSettings } from '@/features/settings/useSettings';
+import { useDebouncedCallback } from '@/hooks/useDebouncedCallback';
 import { useHotkey } from '@/hooks/useHotkey';
 import { detailOf, messageOf } from '@/lib/http';
 import { useWorkspace } from '@/store/workspace';
@@ -137,6 +138,16 @@ export function AppShell() {
     if (target && projects.some((p) => p.id === target)) selectProject(target);
   }, [settingsLoaded, loading, projects, settings.restoreLastProject, settings.lastProjectId, selectedProjectId, selectProject]);
 
+  /**
+   * The agent just wrote a file, so the Changes panel is out of date.
+   *
+   * Debounced because a run edits in bursts — five Edits in two seconds should cost one `git status`,
+   * not five. The 4s ceiling is what keeps a long run from going quiet: a file appears in the panel
+   * within a few seconds of the agent writing it, which is the point of having both panels open.
+   */
+  const bumpGit = useCallback(() => setGitRevision((n) => n + 1), []);
+  const onFilesTouched = useDebouncedCallback(bumpGit, 700, 4000);
+
   const onRunStateChange = useCallback(
     (running: boolean) => {
       if (!selectedChatId) return;
@@ -233,6 +244,7 @@ export function AppShell() {
                     setChats((current) => current.map((c) => (c.id === updated.id ? updated : c)))
                   }
                   onRunStateChange={onRunStateChange}
+                  onFilesTouched={onFilesTouched}
                 />
               </Panel>
 
