@@ -10,8 +10,9 @@ import { DEFAULT_SETTINGS } from '../shared/types.ts';
  * default colour with nothing to explain why, which reads as "the setting is broken".
  */
 const themes = readFileSync(fileURLToPath(new URL('../client/styles/themes.css', import.meta.url)), 'utf8');
+// The swatch list lives with the section that renders it, not with the page shell.
 const page = readFileSync(
-  fileURLToPath(new URL('../client/features/settings/SettingsPage.tsx', import.meta.url)),
+  fileURLToPath(new URL('../client/features/settings/sections/GeneralSection.tsx', import.meta.url)),
   'utf8'
 );
 

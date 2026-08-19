@@ -231,3 +231,70 @@ Verified by terminating two sockets without a close handshake and confirming bot
 
 Reconnecting starts a **fresh** shell rather than reattaching: a PTY holds no replayable history, so
 pretending to resume would present an empty screen mid-session.
+
+### Build trigger
+
+`POST /api/git/trigger-build` → `{summary, status}`
+
+An empty commit, then a push — for pipelines that only run on a new commit. Human-initiated from the
+terminal header, always behind a confirmation that shows both commands verbatim.
+
+**A staged index is refused** with `GIT_STAGED` and the file list. `git commit --allow-empty` does not
+mean "commit nothing": it commits whatever is in the index, so without this guard the button would
+quietly ship staged work under the message `trigger build`. Unstaged and untracked files are left
+alone, since an empty commit never touches the working tree.
+
+The commit message is fixed at `trigger build`, and the push goes through the same
+`pushCurrentBranch` helper as `/api/git/push` — one push implementation to audit, no force in any
+spelling, remote and branch read from the repository.
+
+If the commit succeeds and the push fails, the error says so and names the local commit, because
+"could not push" alone leads to pressing the button again and stacking empty commits.
+
+Verified against a bare upstream and a clone: a clean tree pushed `7b96569` and the commit arrived in
+the upstream log; a staged `wip.txt` was refused and stayed staged; unstaged edits plus an untracked
+file produced a genuinely empty commit with the working tree untouched; and with the upstream moved
+away, the response read `Empty commit 1765189 was created, but the push failed` with git's own
+`Could not read from remote repository` and the `git reset --hard HEAD~1` escape.
+
+### Settings and storage
+
+`GET /api/settings` · `PATCH /api/settings` · `POST /api/settings/reset`
+
+Preferences live in `state.json` beside the project list, not in browser storage — the server is the
+only thing that survives a reload, a second tab, or a restart, and a setting that silently differs per
+tab is worse than no setting.
+
+**Every field is validated against its allowed values**, and a model id must be one this build offers.
+A free-text model would reach the CLI as `--model claude-opus-6` and fail once per run with an error
+that reads like a Flight Deck bug rather than a bad setting. Ranges: terminal font 9–24, turn cap 0–200
+(0 meaning no cap).
+
+What each setting actually drives, since a preference that changes nothing is worse than a disabled one:
+
+| Setting | Effect |
+|---|---|
+| `defaultModel` | `model` for chats created without one; collapses to *absent*, never `--model ""` |
+| `defaultPermissionMode` | seeds `project.defaultPermissionMode` as a project is added; existing projects keep theirs |
+| `maxTurns` | `--max-turns` on every run; 0 omits the flag |
+| `commitSignoff` | `git commit --signoff`, so the trailer uses the identity git itself will attribute |
+| `draftModel` | model for `POST /api/git/commit-message` when the request pins none |
+| `terminalShell` | shell profile for new terminal sockets |
+| `terminalFontSize`, `terminalCursorBlink` | mutated on the live xterm instance — **never** by recreating it, which would close the socket and kill the shell |
+
+`GET /api/storage` → `{stateFile, attachmentsDir, attachmentCount, attachmentBytes}`
+
+`DELETE /api/storage/attachments` → `{deleted, freedBytes}`
+
+The directory is built from `stateDir()` server-side and never accepted from the client: that is the
+entire safety of a recursive delete. It cannot reach a repository or `state.json`. Prompts that
+referenced deleted files keep the paths in their text — the transcript belongs to the CLI and is not
+rewritten — which the UI says before the button is pressed.
+
+Verified over HTTP: bad model, out-of-range font size and a fractional turn cap were each rejected with
+their own message; a real commit on a scratch repo produced `Signed-off-by: Dev Example
+<dev@example.com>` matching the repo-local identity; and adding one 1600-byte attachment moved the
+reported usage by exactly 1600 bytes. The purge route is deliberately not exercised by a test, since it
+would delete the developer's own attachments — `measureAttachments` is tested against a temporary tree
+instead.
+

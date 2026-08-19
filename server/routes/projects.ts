@@ -78,7 +78,8 @@ export async function projectRoutes(app: FastifyInstance): Promise<void> {
         name: req.body?.name?.trim() || basename(path),
         path,
         addedAt: new Date().toISOString(),
-        defaultPermissionMode: 'acceptEdits'
+        // Existing projects keep whatever they have; this only seeds new ones.
+        defaultPermissionMode: s.settings?.defaultPermissionMode ?? 'acceptEdits'
       };
       s.projects.push(project);
       return project;

@@ -50,7 +50,7 @@ export async function abort(chatId: string): Promise<boolean> {
   return true;
 }
 
-function buildArgs(chat: Chat, resume: boolean): string[] {
+export function buildArgs(chat: Chat, resume: boolean, maxTurns = 0): string[] {
   const args = [
     '-p',
     '--output-format',
@@ -66,6 +66,9 @@ function buildArgs(chat: Chat, resume: boolean): string[] {
   ];
   // Absent means the CLI's own default; passing an empty string would be an error.
   if (chat.model) args.push('--model', chat.model);
+  // A cap of 0 means no cap, so the flag is omitted entirely — `--max-turns 0` would end every run
+  // before it started.
+  if (maxTurns > 0) args.push('--max-turns', String(maxTurns));
   // A session id can only be *claimed* once. After the first turn the same conversation
   // has to be re-entered with --resume, or the CLI rejects the id as already in use.
   args.push(resume ? '--resume' : '--session-id', chat.sessionId);
@@ -84,7 +87,10 @@ export async function send(
   chat: Chat,
   prompt: string,
   resume: boolean,
-  onEvent: (event: UiEvent) => void
+  onEvent: (event: UiEvent) => void,
+  /** Hard cap on turns; 0 means none. Passed in rather than read here — this module spawns, it does
+   *  not consult state. */
+  maxTurns = 0
 ): Promise<void> {
   if (runs.has(chat.id)) {
     onEvent({ type: 'error', message: 'This chat is already running. Stop it before sending again.' });
@@ -103,7 +109,7 @@ export async function send(
   const cli = resolveCli();
   let child: ChildProcessWithoutNullStreams;
   try {
-    child = spawn(cli.command, [...cli.prefixArgs, ...buildArgs(chat, resume)], {
+    child = spawn(cli.command, [...cli.prefixArgs, ...buildArgs(chat, resume, maxTurns)], {
       cwd: project.path,
       // argv array, never a shell string: paths hold spaces and backslashes. The Windows
       // .cmd shim is resolved to its real target in cli.ts, so no shell is needed here.

@@ -90,6 +90,8 @@ a diff you commit yourself.
 - **Drafted commit messages** — reads the staged diff and writes an imperative subject; it lands in the box for editing and never commits
 - **Per-repo git identity** — see who the next commit will be attributed to and switch in one click, `--local` only
 - **Live updates while the agent works** — files appear as they are written, driven by the stream's own tool events
+- **Trigger a build** — one button for an empty commit plus a push, for pipelines that only run on new commits; refused if anything is staged
+- Switching branches fetches straight after, so ahead/behind is true rather than as stale as your last fetch
 
 ### Terminal
 - A real PTY per project, in the project's folder, at the bottom of the centre column (`Ctrl+J`)
@@ -100,6 +102,7 @@ a diff you commit yourself.
 ### Interface
 - Three resizable panels; the sidebar collapses to an icon rail and Changes to an edge tab
 - Dark and light themes, seven contrast-checked accents, two densities
+- A settings page where every switch does something — agent defaults and a turn cap, commit sign-off, terminal profile and type size, and a Privacy section that names the files on disk
 - **Never "something went wrong"** — every failure carries the real `git` or `claude` stderr with a copy button
 
 ## Requirements

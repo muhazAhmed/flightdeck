@@ -958,3 +958,77 @@ debounce fed an edit every 300ms would never fire once, and a long run would sit
 whole thing. Verified against a real run — Edit, Write and PowerShell each triggered a refresh; two
 Reads did not.
 
+## No setting that does not do something
+
+The settings page shipped with five disabled nav entries — honest while the pages were empty, but the
+temptation when filling them is to add plausible-looking switches. Every field added here drives real
+behaviour, and the ones that could not were written as *statements* instead of controls: scrollback
+says "fixed at 5000 lines", large diffs say "truncated with a warning", pull says
+`--ff-only` with no toggle beside it. A card titled "Fixed by design" is more useful than a disabled
+switch, and far more useful than a working switch that changes nothing.
+
+Three choices worth recording:
+
+**Font size mutates the live xterm instance.** Putting `appearance` in the creation effect's
+dependencies would dispose the terminal on every press of the stepper — and the server kills the shell
+when its socket closes, so nudging the font size would end a running build. The value is read through
+a ref at creation and applied by a second effect that also re-fits, since cell metrics changed.
+
+**Sign-off goes through `git commit --signoff`, not through the message text.** Appending the trailer
+ourselves would mean composing it from an identity we looked up, which can disagree with the author
+line git actually writes. Verified on a scratch repo: the trailer matched the repo-local identity, not
+the machine default.
+
+**Model ids are validated against `MODEL_OPTIONS`.** A free-text field would let a typo reach the CLI
+as `--model claude-opus-6`, failing once per run with an error that reads like a Flight Deck bug.
+
+The turn cap is the one setting with teeth: `--max-turns` ends a runaway loop instead of spending an
+afternoon of quota. 0 omits the flag entirely — `--max-turns 0` would end every run before it started.
+All new defaults are the inert value, so updating cannot silently change how anyone's runs behave.
+
+The Privacy section names paths and counts rather than describing them, because "attachments are stored
+locally" is a claim while `~/.flightdeck/attachments · 14 files · 8.2 MB` with a delete button is a fact.
+The purge builds its directory from `stateDir()` server-side; the client cannot name it, which is the
+whole safety of a recursive delete.
+
+## The build trigger runs server-side, not in the shell
+
+The request was a button that runs `git commit --allow-empty -m "trigger build"` and `git push`. It sits
+where it was asked for — the terminal header, beside Clear — but it does not type into the terminal.
+Three reasons, worst first:
+
+1. `git commit ... && git push` is **invalid in Windows PowerShell 5.1**, the default shell on this
+   platform. The chained form would half-run and read as a Flight Deck bug.
+2. Typed input goes to whatever the shell is currently running. Press it during a build and the text
+   lands in that process.
+3. There is already one audited push path. A second one built as a string is exactly what should not
+   exist.
+
+The cost is that output arrives as a toast rather than in the terminal, so the toast carries git's own
+summary verbatim.
+
+**`--allow-empty` is not "commit nothing".** It commits whatever is in the index — so with files staged,
+this button would ship them under the message "trigger build". A staged index is refused and the
+refusal names the files. Unstaged and untracked files are fine and were verified to stay put.
+
+**A failed push after a successful commit says so.** Reporting only "could not push" would leave the
+user unsure whether anything happened, and pressing the button again stacks empty commits. The error
+names the commit, the branch it is on, and `git reset --hard HEAD~1`.
+
+Verified against a bare upstream and a real clone rather than a mock: the commit arrived in the
+upstream log, the staged guard held, the empty commit was genuinely empty, and moving the upstream away
+produced the exact partial-failure message above.
+
+## A checkout fetches afterwards
+
+Ahead/behind is only meaningful against an up-to-date remote ref, and the counts right after a switch
+were as stale as the last fetch — which is how you push on top of something you never saw. Demonstrated
+on a scratch clone: immediately after switching to a branch a colleague had pushed to, the panel said
+`behind: 0`; the fetch made it `behind: 1`.
+
+It runs **after** the switch, not as part of it: the checkout is already done and reported, so an
+unreachable remote delays a number rather than the branch change. A failure is therefore a warning, not
+an error — the thing you asked for worked. It has its own `fetching` flag rather than sharing `busy`,
+because a slow network must not disable the menu you just used, and the branch chip shows a spinner so
+the wait is visible.
+

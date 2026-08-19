@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
-import { Check, ChevronDown, Cloud, GitBranch, Plus, Trash2 } from 'lucide-react';
+import { Check, ChevronDown, Cloud, GitBranch, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { BranchList, GitStatus } from '@shared/types';
 import { Button } from '@/shared/ui/Button';
@@ -9,7 +9,7 @@ import { ConfirmDialog, type ConfirmRequest } from '@/shared/ui/ConfirmDialog';
 import { IconButton } from '@/shared/ui/IconButton';
 import { cn } from '@/lib/cn';
 import { detailOf, messageOf, RequestError } from '@/lib/http';
-import { branchApi } from './api';
+import { branchApi, gitApi } from './api';
 
 interface BranchMenuProps {
   projectId: string;
@@ -31,8 +31,35 @@ interface BranchMenuProps {
 export function BranchMenu({ projectId, status, revision, onStatus }: BranchMenuProps) {
   const [branches, setBranches] = useState<BranchList | null>(null);
   const [busy, setBusy] = useState(false);
+  // Separate from `busy`: a fetch must not disable the menu you just used.
+  const [fetching, setFetching] = useState(false);
   const [creating, setCreating] = useState(false);
   const [confirm, setConfirm] = useState<ConfirmRequest | null>(null);
+
+  /**
+   * Fetch after landing on a branch.
+   *
+   * Ahead/behind is only meaningful against a remote ref that is up to date, and the counts shown
+   * immediately after a switch are otherwise as stale as the last fetch — which is how you end up
+   * pushing on top of something you never saw.
+   *
+   * Deliberately after the switch rather than part of it: the checkout is already done and reported,
+   * so a slow or unreachable remote delays a number, not the branch change. A failure is a warning
+   * rather than an error for the same reason — the thing you asked for worked.
+   */
+  const fetchInBackground = useCallback(async () => {
+    setFetching(true);
+    try {
+      const result = await gitApi.fetch(projectId);
+      onStatus(result.status);
+      // `fetch --prune` can drop remote branches that no longer exist, so the list is re-read too.
+      setBranches(await branchApi.list(projectId));
+    } catch (err) {
+      toast.warning('Switched, but could not fetch', { description: detailOf(err) ?? messageOf(err) });
+    } finally {
+      setFetching(false);
+    }
+  }, [projectId, onStatus]);
 
   const load = useCallback(async () => {
     try {
@@ -56,6 +83,9 @@ export function BranchMenu({ projectId, status, revision, onStatus }: BranchMenu
       setBranches(result.branches);
       if (result.status) onStatus(result.status);
       toast.success(`Switched to ${branch}`, { description: result.summary });
+      setBusy(false);
+      await fetchInBackground();
+      return;
     } catch (err) {
       toast.error(messageOf(err), { description: detailOf(err) });
     } finally {
@@ -132,7 +162,11 @@ export function BranchMenu({ projectId, status, revision, onStatus }: BranchMenu
       <DropdownMenu.Root>
         <DropdownMenu.Trigger
           disabled={busy}
-          title={`Branch: ${current ?? 'detached'}${status?.tracking ? ` (tracking ${status.tracking})` : ' — no upstream'}`}
+          title={
+            fetching
+              ? 'Fetching, so the ahead/behind counts are current…'
+              : `Branch: ${current ?? 'detached'}${status?.tracking ? ` (tracking ${status.tracking})` : ' — no upstream'}`
+          }
           className={cn(
             'flex h-6 min-w-0 max-w-28 items-center gap-1 rounded-md border px-1.5 text-[11.5px]',
             'transition-colors duration-(--duration-fast)',
@@ -140,7 +174,13 @@ export function BranchMenu({ projectId, status, revision, onStatus }: BranchMenu
             'disabled:pointer-events-none disabled:opacity-40'
           )}
         >
-          <GitBranch size={11} className="shrink-0 text-accent-bright" />
+          {/* The switch is already done when this spins — it is the fetch that follows, so the icon
+              says "checking the remote", not "still switching". */}
+          {fetching ? (
+            <RefreshCw size={11} className="shrink-0 animate-spin text-accent-bright" />
+          ) : (
+            <GitBranch size={11} className="shrink-0 text-accent-bright" />
+          )}
           <span className="min-w-0 flex-1 truncate text-left font-mono">{current ?? 'detached'}</span>
           <ChevronDown size={10} className="shrink-0 text-text-muted" />
         </DropdownMenu.Trigger>

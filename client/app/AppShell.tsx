@@ -262,7 +262,10 @@ export function AppShell() {
                       <TerminalDrawer
                         project={project}
                         shellId={settings.terminalShell}
+                        fontSize={settings.terminalFontSize}
+                        cursorBlink={settings.terminalCursorBlink}
                         onShellChange={(id) => void updateSettings({ terminalShell: id })}
+                        onCommitted={bumpGit}
                         onClose={() => setTerminalOpen(false)}
                       />
                     </Suspense>

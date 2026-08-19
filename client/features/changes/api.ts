@@ -49,7 +49,11 @@ export const gitApi = {
   // so a client can't push somewhere the repo isn't already pointed at.
   fetch: (projectId: string) => http.post<RemoteResult>('/api/git/fetch', { projectId }),
   pull: (projectId: string) => http.post<RemoteResult>('/api/git/pull', { projectId }),
-  push: (projectId: string) => http.post<RemoteResult>('/api/git/push', { projectId })
+  push: (projectId: string) => http.post<RemoteResult>('/api/git/push', { projectId }),
+
+  /** Empty commit then push, to make a pipeline that only runs on new commits run again. Refused by
+   *  the server when anything is staged — an empty commit would carry it along. */
+  triggerBuild: (projectId: string) => http.post<RemoteResult>('/api/git/trigger-build', { projectId })
 };
 
 export const identityApi = {

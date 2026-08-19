@@ -29,7 +29,16 @@ function token(name: string): string {
  * will eventually punish (there is a hard limit on live contexts), and a leaked socket leaves a shell
  * running on the server.
  */
-export function useTerminal(projectId: string | null, shellId: string | null) {
+export interface TerminalAppearance {
+  fontSize: number;
+  cursorBlink: boolean;
+}
+
+export function useTerminal(
+  projectId: string | null,
+  shellId: string | null,
+  appearance: TerminalAppearance
+) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const terminalRef = useRef<Terminal | null>(null);
   const socketRef = useRef<WebSocket | null>(null);
@@ -60,17 +69,23 @@ export function useTerminal(projectId: string | null, shellId: string | null) {
     }
   }, []);
 
+  // Read at creation only. The effect below deliberately does not depend on appearance — see the
+  // appearance effect further down for why.
+  const appearanceRef = useRef(appearance);
+  appearanceRef.current = appearance;
+
   useEffect(() => {
     const container = containerRef.current;
     if (!container || !projectId) return;
+    const initial = appearanceRef.current;
 
     const terminal = new Terminal({
       // 5000 lines: enough to scroll back through a build, not enough to hold a gigabyte of log.
       scrollback: 5000,
       fontFamily: token('--font-mono') || 'monospace',
-      fontSize: 12.5,
+      fontSize: initial.fontSize,
       lineHeight: 1.35,
-      cursorBlink: true,
+      cursorBlink: initial.cursorBlink,
       // The shell's own colours arrive as escape codes; only the surrounding chrome is ours.
       theme: {
         background: token('--bg-base') || '#101319',
@@ -171,6 +186,22 @@ export function useTerminal(projectId: string | null, shellId: string | null) {
     // instance would leave the previous shell's output above a new prompt, which reads as one broken
     // session rather than two.
   }, [projectId, shellId, syncSize]);
+
+  /**
+   * Appearance changes mutate the live instance instead of re-running the effect above.
+   *
+   * This is the whole reason `appearance` is read through a ref there: putting it in the deps would
+   * dispose the terminal and its socket on every keystroke of the font-size stepper, and the server
+   * kills the shell when the socket closes. Nudging the size would end a running build.
+   */
+  useEffect(() => {
+    const terminal = terminalRef.current;
+    if (!terminal) return;
+    terminal.options.fontSize = appearance.fontSize;
+    terminal.options.cursorBlink = appearance.cursorBlink;
+    // Cell metrics changed, so the shell needs to be told the new column count.
+    syncSize();
+  }, [appearance.fontSize, appearance.cursorBlink, syncSize]);
 
   const focus = useCallback(() => terminalRef.current?.focus(), []);
   const clear = useCallback(() => terminalRef.current?.clear(), []);

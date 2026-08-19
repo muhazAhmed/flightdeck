@@ -82,7 +82,9 @@ export async function commitMessageRoutes(app: FastifyInstance): Promise<void> {
       const truncated = full.length > MAX_DIFF_CHARS;
       const prompt = buildPrompt(stat.stdout, truncated ? full.slice(0, MAX_DIFF_CHARS) : full, truncated);
 
-      const result = await ask(project.path, prompt, req.body?.model);
+      // The request may pin a model; otherwise use the one configured for drafting.
+      const model = req.body?.model || state.read().settings?.draftModel || undefined;
+      const result = await ask(project.path, prompt, model);
       if (!result.ok || !result.text) {
         return serverError(reply, 'Could not draft a commit message.', result.error ?? 'The model returned nothing.');
       }

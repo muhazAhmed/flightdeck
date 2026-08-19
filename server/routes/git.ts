@@ -215,7 +215,12 @@ export async function gitRoutes(app: FastifyInstance): Promise<void> {
         if (!files && status.staged.length === 0) {
           return badRequest(reply, 'Nothing is staged.', 'NOTHING_STAGED');
         }
-        const result = files ? await git.commit(message, files) : await git.commit(message);
+        // `--signoff` uses the identity git itself will attribute the commit to, which is the one the
+        // identity bar shows — so the trailer can never disagree with the author line.
+        const options = state.read().settings?.commitSignoff ? { '--signoff': null } : undefined;
+        const result = files
+          ? await git.commit(message, files, options)
+          : await git.commit(message, undefined, options);
         return { commit: result.commit, summary: result.summary, status: toStatus(await git.status()) };
       } catch (err) {
         return serverError(reply, 'Could not commit.', detailOf(err));

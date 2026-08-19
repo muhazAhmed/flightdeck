@@ -146,6 +146,18 @@ export interface Settings {
   restoreLastProject: boolean;
   /** Terminal profile id from `ShellProfile`; empty means the best one detected. */
   terminalShell: string;
+  terminalFontSize: number;
+  terminalCursorBlink: boolean;
+  /** Model for new chats. Empty means whatever the CLI is configured to use. */
+  defaultModel: string;
+  /** Permission mode given to projects as they are added. Existing projects keep theirs. */
+  defaultPermissionMode: PermissionMode;
+  /** Hard cap on turns per run, passed as `--max-turns`. 0 means no cap. */
+  maxTurns: number;
+  /** Append `Signed-off-by` to commits, using the identity the repo will attribute them to. */
+  commitSignoff: boolean;
+  /** Model that drafts commit messages. Empty means the CLI default. */
+  draftModel: string;
   /** Set by the client as projects are selected; the seed for `restoreLastProject`. */
   lastProjectId: string | null;
 }
@@ -157,8 +169,23 @@ export const DEFAULT_SETTINGS: Settings = {
   confirmLevel: 'all',
   restoreLastProject: true,
   terminalShell: '',
+  terminalFontSize: 12.5,
+  terminalCursorBlink: true,
+  defaultModel: '',
+  defaultPermissionMode: 'acceptEdits',
+  maxTurns: 0,
+  commitSignoff: false,
+  draftModel: '',
   lastProjectId: null
 };
+
+/** What Flight Deck has written outside your repositories, for the Privacy section. */
+export interface StorageUsage {
+  stateFile: string;
+  attachmentsDir: string;
+  attachmentCount: number;
+  attachmentBytes: number;
+}
 
 export interface AppState {
   version: 1;

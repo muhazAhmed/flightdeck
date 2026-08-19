@@ -21,12 +21,24 @@ test('appearance and behaviour both live under General', () => {
   assert.equal((html.match(/>Behaviour</g) ?? []).length, 1, 'Behaviour should be a card, not also a nav item');
 });
 
-test('the General nav entry is the only enabled one', () => {
+test('every nav section is reachable', () => {
   const html = render();
-  // Disabled entries are rendered so the roadmap is visible; only one is clickable today.
-  const disabled = (html.match(/disabled=""/g) ?? []).length;
-  assert.ok(disabled >= 4, `expected the unbuilt sections to render disabled, found ${disabled}`);
-  assert.match(html, /Not built yet/);
+  for (const label of ['General', 'Git &amp; Commit', 'AI Assistant', 'Terminal', 'Shortcuts', 'Privacy']) {
+    assert.match(html, new RegExp(`>${label}<`), `${label} missing from the nav`);
+  }
+  // Each section is backed by settings that do something, so nothing is a disabled placeholder any
+  // more. A dead nav entry was honest while the pages were empty; now it would just be a bug.
+  assert.ok(!/>Not built yet</.test(html), 'no section should still be a placeholder');
+});
+
+test('the nav is the only place a section is named twice', () => {
+  const html = render();
+  // The header renders the active section's own label, so General appears in nav + heading and the
+  // rest appear once. A count above two means a stray duplicate crept in.
+  for (const label of ['Git &amp; Commit', 'AI Assistant', 'Shortcuts', 'Privacy']) {
+    const count = (html.match(new RegExp(`>${label}<`, 'g')) ?? []).length;
+    assert.equal(count, 1, `${label} rendered ${count} times`);
+  }
 });
 
 test('every accent swatch is rendered with an accessible name', () => {

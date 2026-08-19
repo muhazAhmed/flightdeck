@@ -59,8 +59,9 @@ What the tool does, grouped by area, each tagged with the phase it lands in.
 | Discard changes | P2 | Destructive — confirm names the exact file. |
 | Stash / stash pop / stash list | P2 | |
 | Live update while the agent works | **done** | Files appear in the panel as the agent edits, without waiting for the run to end. Driven by the stream's own tool events (debounced, 700ms with a 4s ceiling), so there is no polling and no watcher. Refreshes are quiet: no spinner, no error banner from a failed background read, and skipped outright while you are mid-stage or mid-commit. |
+| Trigger a build | **done** | Button in the terminal header: an empty commit plus a push, for pipelines that only run on new commits. Refuses when anything is staged — an empty commit would carry it along — and if the push fails it says the commit was made and how to remove it. |
 | Fetch / pull / push | **done** | Pull is `--ff-only` and refuses on a dirty tree; push is human-only, never forced, and shows the commit count before you confirm. |
-| Branch list, checkout, create, delete | **done** | Picker shows each branch's last commit and date. Checkout refuses on a dirty tree; creating a branch deliberately carries your changes. Delete refuses when commits exist nowhere else, and force is a separate confirmation. Remote branches check out as tracking branches. |
+| Branch list, checkout, create, delete | **done** | Picker shows each branch's last commit and date. A switch fetches straight afterwards, so ahead/behind is true for the branch you just landed on rather than as stale as your last fetch. Checkout refuses on a dirty tree; creating a branch deliberately carries your changes. Delete refuses when commits exist nowhere else, and force is a separate confirmation. Remote branches check out as tracking branches. |
 | Commit history | P3 | Recent commits, click for the diff. |
 | Word-level diff highlighting | P3 | |
 | Push | **No** | Deliberately absent. See the safety rule. |
@@ -88,7 +89,7 @@ What the tool does, grouped by area, each tagged with the phase it lands in.
 | Empty / loading / disconnected states | P1 | Skeletons, not full-page spinners. Server-down is a persistent banner with retry. |
 | Concurrent-chat warning | P1 | Two chats in one project share one working tree — the UI says so instead of pretending otherwise. |
 | Elapsed time on long tool cards | **done** | A slow `npm ci` reads as working, not hung. |
-| Settings page | **done** | Own left nav with every planned section listed; unbuilt ones visibly disabled. General and Behaviour are real. |
+| Settings page | **done** | Six sections, all real: General (appearance, confirmations, startup), Git & Commit (sign-off, drafting model), AI Assistant (default model, permission mode for new projects, turn cap), Terminal (profile, font size, cursor), Shortcuts (reference), Privacy (what is on disk, with paths and a purge). Nothing is a disabled placeholder any more. |
 | Light theme | **done** | A full light surface stack, measured, plus `color-scheme` so form controls and scrollbars follow. |
 | Accent colours | **done** | Seven, each a contrast-checked fill/bright pair with a light-theme companion. Green, amber and red are labelled where they collide with diff or status meaning. |
 | Interface density | **done** | Comfortable / compact, driven by the type scale. |

@@ -70,7 +70,9 @@ export async function chatRoutes(app: FastifyInstance): Promise<void> {
         // The CLI requires a real UUID here, and it doubles as the transcript's identity.
         sessionId: randomUUID(),
         permissionMode: permissionMode ?? project.defaultPermissionMode,
-        model: model?.trim() || undefined,
+        // Explicit choice wins, then the global default. Undefined means the CLI's own default, so an
+        // empty setting has to collapse to undefined rather than to an empty string.
+        model: model?.trim() || s.settings?.defaultModel || undefined,
         createdAt: new Date().toISOString(),
         lastMessageAt: null
       };
@@ -134,9 +136,16 @@ export async function chatRoutes(app: FastifyInstance): Promise<void> {
       void agent.abort(chat.id);
     });
 
-    await agent.send(project, chat, text, resume, (event) => {
-      if (!clientGone) send(event);
-    });
+    await agent.send(
+      project,
+      chat,
+      text,
+      resume,
+      (event) => {
+        if (!clientGone) send(event);
+      },
+      state.read().settings?.maxTurns ?? 0
+    );
 
     state.update((s) => {
       const stored = s.chats.find((c) => c.id === chat.id);
