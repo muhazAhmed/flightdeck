@@ -10,7 +10,8 @@ import {
   Plus,
   RefreshCw,
   Sparkles,
-  Undo2
+  Undo2,
+  X
 } from 'lucide-react';
 import type { ConfirmLevel, GitFile, Project } from '@shared/types';
 import { Button } from '@/shared/ui/Button';
@@ -20,6 +21,7 @@ import { IconButton } from '@/shared/ui/IconButton';
 import { Skeleton } from '@/shared/ui/Skeleton';
 import { toast } from 'sonner';
 import { cn } from '@/lib/cn';
+import { useHotkey } from '@/hooks/useHotkey';
 import { detailOf, messageOf } from '@/lib/http';
 import { gitApi } from './api';
 import { BranchMenu } from './BranchMenu';
@@ -55,6 +57,10 @@ export function ChangesPanel({ project, revision, confirmLevel }: ChangesPanelPr
   const [confirm, setConfirm] = useState<ConfirmRequest | null>(null);
   const [tab, setTab] = useState<Tab>('unstaged');
   const [drafting, setDrafting] = useState(false);
+
+  // Escape closes the open diff. The shell's global Escape also fires, but it only returns to the workspace view,
+  // which is where we already are — so the two do not fight.
+  useHotkey('Escape', () => git.select(null), { ctrl: false, inFields: true });
 
   const status = git.status;
   const staged = status?.staged ?? [];
@@ -419,6 +425,9 @@ export function ChangesPanel({ project, revision, confirmLevel }: ChangesPanelPr
             <span className="ml-auto shrink-0 text-[11.5px] text-text-muted">
               {git.selected.staged ? 'staged' : 'working tree'}
             </span>
+            {/* Until this existed a diff could not be dismissed at all: clicking the same row again was a no-op
+                and nothing else cleared the selection. */}
+            <IconButton label="Close the diff (Esc)" icon={<X size={13} />} onClick={() => git.select(null)} />
           </div>
           <DiffView diff={git.diff} />
         </div>
@@ -530,7 +539,7 @@ interface FileListProps {
   files: GitFile[];
   selected: SelectedFile | null;
   staged: boolean;
-  onSelect: (file: SelectedFile) => void;
+  onSelect: (file: SelectedFile | null) => void;
   groupActions: ReactNode;
   rowActions: (file: GitFile, isSelected: boolean) => ReactNode;
 }
@@ -558,7 +567,9 @@ function FileList({ files, selected, staged, onSelect, groupActions, rowActions 
           >
             <FileCode2 size={13} className="shrink-0 text-text-muted" />
             <button
-              onClick={() => onSelect({ path: file.path, staged })}
+              // Clicking the row that is already open closes it, which is what a second click on a toggle means
+              // everywhere else in this app.
+              onClick={() => onSelect(isSelected ? null : { path: file.path, staged })}
               className="min-w-0 flex-1 truncate text-left font-mono text-[12.5px] text-text-secondary"
               title={file.path}
             >

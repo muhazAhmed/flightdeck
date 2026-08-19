@@ -1,6 +1,7 @@
-import { ChevronDown, ChevronRight, FileCode2, GitMerge, Tag } from 'lucide-react';
+import { ChevronDown, ChevronRight, FileCode2, GitMerge, Tag, X } from 'lucide-react';
 import type { CommitFile } from '@shared/types';
 import { Button } from '@/shared/ui/Button';
+import { IconButton } from '@/shared/ui/IconButton';
 import { EmptyState } from '@/shared/ui/EmptyState';
 import { Skeleton } from '@/shared/ui/Skeleton';
 import { cn } from '@/lib/cn';
@@ -118,6 +119,7 @@ export function HistoryPanel({ projectId, revision }: { projectId: string; revis
             <span className="ml-auto shrink-0 font-mono text-[11.5px] text-text-muted">
               {history.detail?.shortSha}
             </span>
+            <IconButton label="Close the diff" icon={<X size={13} />} onClick={() => history.selectFile(null)} />
           </div>
           <DiffView diff={history.diff} />
         </div>
