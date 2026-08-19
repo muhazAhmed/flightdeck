@@ -33,12 +33,6 @@ export function defaultBrowseDir(): string {
   return homedir();
 }
 
-/** The shell a terminal PTY should run (Phase 3). */
-export function defaultShell(): string {
-  if (isWindows) return process.env.COMSPEC ?? 'powershell.exe';
-  return process.env.SHELL ?? '/bin/bash';
-}
-
 /**
  * How Claude Code encodes a working directory into a transcript folder name, e.g.
  * `E:\muhaz\flightdeck` becomes `E--muhaz-flightdeck`. Used to locate a session's

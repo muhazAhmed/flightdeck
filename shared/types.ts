@@ -64,6 +64,30 @@ export interface Attachment {
   kind: 'image' | 'file';
 }
 
+/** A shell this machine actually has, offered in the terminal's profile picker. */
+export interface ShellProfile {
+  id: string;
+  label: string;
+  /** Absolute path to the executable, or a bare name resolved from PATH. */
+  path: string;
+  args: string[];
+  /** Caveat worth showing next to the option, e.g. how WSL treats the working directory. */
+  note?: string;
+}
+
+// ─── Terminal transport ──────────────────────────────────────────────────────
+// JSON both ways: costs a little throughput, saves inventing a framing scheme for resize and exit.
+
+export type TerminalClientMessage =
+  | { type: 'input'; data: string }
+  | { type: 'resize'; cols: number; rows: number };
+
+export type TerminalServerMessage =
+  | { type: 'ready'; shell: string; shellId: string; cwd: string; scrollback: number }
+  | { type: 'output'; data: string }
+  | { type: 'exit'; code: number }
+  | { type: 'error'; message: string; detail?: string };
+
 /** Whoever git says you are, machine-wide. Shown in the sidebar footer. */
 export interface UserInfo {
   name: string | null;
@@ -120,6 +144,8 @@ export interface Settings {
   confirmLevel: ConfirmLevel;
   /** Reopen the project that was selected when the app was last closed. */
   restoreLastProject: boolean;
+  /** Terminal profile id from `ShellProfile`; empty means the best one detected. */
+  terminalShell: string;
   /** Set by the client as projects are selected; the seed for `restoreLastProject`. */
   lastProjectId: string | null;
 }
@@ -130,6 +156,7 @@ export const DEFAULT_SETTINGS: Settings = {
   density: 'comfortable',
   confirmLevel: 'all',
   restoreLastProject: true,
+  terminalShell: '',
   lastProjectId: null
 };
 

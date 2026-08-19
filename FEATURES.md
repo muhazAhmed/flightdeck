@@ -70,9 +70,10 @@ What the tool does, grouped by area, each tagged with the phase it lands in.
 
 | Feature | Phase | Notes |
 |---|---|---|
-| Plain shell per project | P3 | `node-pty` + `xterm.js` over WebSocket, `cwd` = project. Collapsible bottom drawer. |
-| WebGL renderer, capped scrollback | P3 | ~5000 lines. Performance is a constraint, not an optimisation. |
-| Dispose PTY on disconnect | P3 | A browser refresh must not leak a process. |
+| Plain shell per project | **done** | `node-pty` + `xterm.js` over a WebSocket, opened in the project's folder. Sits at the bottom of the centre column, drag-resizable, `Ctrl+J`. Profile picker lists the shells actually detected on the machine — PowerShell, cmd, Git Bash, each WSL distro; `$SHELL`/zsh/bash/fish elsewhere. Choice persists in settings; `FLIGHTDECK_SHELL` overrides. |
+| WebGL renderer, capped scrollback | **done** | 5000 lines, WebGL with a DOM fallback when no GL context is available. |
+| Dispose PTY on disconnect | **done** | Verified: two shells, sockets terminated without a close handshake, both processes gone. |
+| Loaded on demand | **done** | xterm is ~450 kB, so it is a lazy chunk — the terminal is opt-in and most sessions never open one. |
 | Multiple terminals per project | Later | One is enough to start. |
 | The agent getting a PTY | **No** | The agent uses its own Bash tool; output appears as a tool card. Keeps the two systems unable to break each other. |
 

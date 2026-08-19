@@ -10,6 +10,7 @@ import {
   Plus,
   Search,
   Settings,
+  SquareTerminal,
   Trash2
 } from 'lucide-react';
 import type { Chat, Project, UserInfo } from '@shared/types';
@@ -54,6 +55,8 @@ export function ProjectSidebar({
   const selectChat = useWorkspace((s) => s.selectChat);
   const setPaletteOpen = useWorkspace((s) => s.setPaletteOpen);
   const setSettingsOpen = useWorkspace((s) => s.setSettingsOpen);
+  const terminalOpen = useWorkspace((s) => s.terminalOpen);
+  const toggleTerminal = useWorkspace((s) => s.toggleTerminal);
 
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [query, setQuery] = useState('');
@@ -101,8 +104,14 @@ export function ProjectSidebar({
         })}
         <IconButton label="Add project" className="mt-1 size-9" icon={<Plus size={16} />} onClick={onAddProject} />
         <IconButton
+          label="Terminal (Ctrl+J)"
+          className={cn('mt-auto size-9', terminalOpen && 'bg-accent-subtle text-accent-bright')}
+          icon={<SquareTerminal size={16} />}
+          onClick={toggleTerminal}
+        />
+        <IconButton
           label="Settings (Ctrl+,)"
-          className="mt-auto size-9"
+          className="size-9"
           icon={<Settings size={16} />}
           onClick={() => setSettingsOpen(true)}
         />
@@ -265,6 +274,28 @@ export function ProjectSidebar({
           })
         )}
       </div>
+
+      {/* Above the profile: a tool you reach for constantly should not be buried in settings. */}
+      <button
+        onClick={toggleTerminal}
+        title="Terminal (Ctrl+J)"
+        className={cn(
+          'mx-2 mb-1 flex items-center gap-2.5 rounded-md px-2 py-2 text-left text-[13.5px]',
+          'transition-colors duration-(--duration-fast)',
+          terminalOpen
+            ? 'bg-accent-subtle text-text-primary'
+            : 'text-text-secondary hover:bg-surface-2 hover:text-text-primary'
+        )}
+      >
+        <SquareTerminal
+          size={15}
+          className={cn('shrink-0', terminalOpen ? 'text-accent-bright' : 'text-text-muted')}
+        />
+        <span className="min-w-0 flex-1 truncate">Terminal</span>
+        <span className="shrink-0 rounded border border-border-subtle px-1 font-mono text-[11px] text-text-muted">
+          Ctrl J
+        </span>
+      </button>
 
       <SidebarFooter onOpenSettings={() => setSettingsOpen(true)} />
     </nav>

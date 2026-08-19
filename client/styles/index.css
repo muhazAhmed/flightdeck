@@ -12,6 +12,10 @@
 @import '@fontsource-variable/plus-jakarta-sans/wght.css';
 @import '@fontsource-variable/jetbrains-mono/wght.css';
 
+/* xterm's own stylesheet: cursor, selection and viewport geometry. The terminal mispositions its
+ * overlay layers without it — the colours still come from our tokens, passed in as a theme object. */
+@import '@xterm/xterm/css/xterm.css';
+
 @import './tokens.css';
 @import './themes.css';
 

@@ -856,3 +856,70 @@ like Fetch / Pull / Push so the whole header reads as one family instead of one 
 three icons. They belong together because they answer the same question — *which context am I
 committing into* — and the identity was previously buried above the commit box, visible only after
 scrolling a long file list.
+
+---
+
+### 2026-08-18 · The terminal, and where it lives
+
+`node-pty` on the server, `xterm.js` in the browser, one WebSocket per shell, opened in the selected
+project's folder.
+
+**It sits at the bottom of the centre column, not across the window.** A nested vertical panel group
+inside the chat column, drag-resizable, `Ctrl+J`, with an entry in the sidebar above the profile. The
+point of a terminal here is running a build and watching the file list react to it, so the Changes
+panel has to stay visible.
+
+**It is yours, not the agent's.** Nothing agent-reachable touches `server/pty.ts`. The agent runs
+commands through its own Bash tool and they appear as tool cards. A wedged shell cannot affect a run,
+and a run cannot type into your shell.
+
+**Disposal was the real work.** A PTY is an OS process: a closed tab, a reload, or a dropped
+connection leaves a shell running against a repository with nobody attached. `close` and `error` both
+dispose, shutdown walks the map, and starting a session with an id already in use disposes the
+previous one. Verified rather than assumed — two terminals opened, both sockets `terminate()`d with no
+close handshake, and the shell count returned to its baseline.
+
+**Reconnecting starts a fresh shell.** A PTY holds no replayable history, so "resuming" would show an
+empty screen mid-session and imply state that does not exist.
+
+**Loaded on demand.** xterm plus the WebGL addon is ~450 kB, and the terminal is opt-in — most
+sessions never open one. It is a lazy chunk, which brought the main bundle back from 1.10 MB to
+654 kB.
+
+**PowerShell before cmd** on Windows, with `FLIGHTDECK_SHELL` as the override. `COMSPEC` is cmd.exe,
+which makes a poor first impression in a tool aimed at people who type `git` all day.
+
+Two things worth knowing for anyone touching this:
+
+- **`node-pty` needed no compiler.** It installed from prebuilds and loaded under plain Node first
+  try. The electron-rebuild disaster that started this whole project was Electron's ABI, not node-pty.
+- **`AttachConsole failed` appears in the server log** when a PTY is killed after its console has
+  already gone. It comes from node-pty's forked console-enumeration helper, not from our process — the
+  server stays up and serving (checked: still answering 200 afterwards). Worth recognising rather than
+  chasing; in an Electron host the same throw used to cascade into a whole-app crash.
+
+## Terminal profiles are detected, not configured
+
+A picker that lists shells the machine does not have is worse than no picker: every wrong entry is a
+terminal that opens and dies. So `server/shells.ts` probes — `existsSync` for each candidate, `git` on
+PATH to locate Git Bash (on the author's machine that is `E:/muhaz/Git/bin/bash.exe`, nowhere near
+Program Files), and `wsl.exe` itself for the distro list. Whatever fails its probe is not offered.
+
+`wsl --list --quiet` writes **UTF-16LE**. Read as UTF-8 it produces NUL-interleaved names — a bug that
+would satisfy "returns an array of strings" and then fail at spawn, so the test asserts the decode
+call rather than the result.
+
+The chosen profile lives in `settings.terminalShell` because a shell preference is a preference, not a
+per-session mood; an id that no longer resolves falls back to the detected default rather than
+erroring. `defaultShell()` left `platform.ts` entirely — two places deciding which shell to open is
+one too many.
+
+Switching restarts the shell, and the menu says so. A PTY's program is fixed at spawn, and reusing the
+xterm instance would leave the old shell's output sitting above a new prompt: one broken session
+rather than two clean ones.
+
+Verified by opening a real socket per profile and running a command through it. PowerShell, cmd and
+Git Bash worked. WSL reported `ready`, then Ubuntu failed to mount with `E_ACCESSDENIED` — which is
+the honest outcome: detection can prove WSL is installed, not that a distro will start, and the real
+error reaches the user verbatim. Another entry in the running theme that the interesting failures only
+appear against a real machine.

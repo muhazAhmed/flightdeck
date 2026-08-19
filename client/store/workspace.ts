@@ -12,6 +12,7 @@ interface WorkspaceState {
   changesCollapsed: boolean;
   paletteOpen: boolean;
   settingsOpen: boolean;
+  terminalOpen: boolean;
 
   selectProject: (projectId: string | null) => void;
   selectChat: (chatId: string | null) => void;
@@ -19,6 +20,8 @@ interface WorkspaceState {
   toggleChanges: () => void;
   setPaletteOpen: (open: boolean) => void;
   setSettingsOpen: (open: boolean) => void;
+  toggleTerminal: () => void;
+  setTerminalOpen: (open: boolean) => void;
 }
 
 export const useWorkspace = create<WorkspaceState>((set) => ({
@@ -28,6 +31,7 @@ export const useWorkspace = create<WorkspaceState>((set) => ({
   changesCollapsed: false,
   paletteOpen: false,
   settingsOpen: false,
+  terminalOpen: false,
 
   // Changing project always clears the chat: a chat id from another project would point
   // the transcript at one repo and the Changes panel at a different one.
@@ -36,5 +40,7 @@ export const useWorkspace = create<WorkspaceState>((set) => ({
   toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
   toggleChanges: () => set((s) => ({ changesCollapsed: !s.changesCollapsed })),
   setPaletteOpen: (paletteOpen) => set({ paletteOpen }),
-  setSettingsOpen: (settingsOpen) => set({ settingsOpen })
+  setSettingsOpen: (settingsOpen) => set({ settingsOpen }),
+  toggleTerminal: () => set((s) => ({ terminalOpen: !s.terminalOpen })),
+  setTerminalOpen: (terminalOpen) => set({ terminalOpen })
 }));

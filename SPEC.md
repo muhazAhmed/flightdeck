@@ -50,7 +50,7 @@ exactly what this avoids.
 | Agent transport | **`claude` CLI, headless** | Runs on the existing Claude subscription (OAuth) — no API key, no per-token billing. |
 | Git access | **`simple-git`** (wraps the real `git` binary) | `stash` / `fetch` / `pull` / `revert` / `reset` all work. `isomorphic-git` is pure JS and missing exactly those. |
 | Chat rendering | **Collapsible tool cards** | Text streams as prose; each edit / bash / read is a card with the diff or output inside. This is what makes the agent's actions reviewable. |
-| Terminal | **Plain shell per project**, Phase 3 | A normal shell opened in the project folder, fully isolated from the agent's process, so it can never affect chat or git. |
+| Terminal | **Plain shell per project** | A normal shell in the project folder, at the bottom of the centre column. Fully isolated from the agent's process, so it can never affect chat or git. |
 | Commits | **Never automatic** | The agent edits the working tree. A human reads the diff and commits. |
 
 ---
@@ -70,8 +70,8 @@ Consequences to respect:
   the same files will interleave edits. The UI must show when a project already has a
   live chat.
 - `bypassPermissions` stays a deliberate per-chat toggle, never a default.
-- The Phase 3 terminal is *yours*. The agent never gets a PTY — it runs commands
-  through its own Bash tool, and that output appears in the chat as a tool card.
+- The terminal is *yours*. The agent never gets a PTY — it runs commands through its own Bash tool,
+  and that output appears in the chat as a tool card. Nothing agent-reachable touches `server/pty.ts`.
 - **Commit, push and pull are yours too.** They exist as buttons because *you* press them:
   every one confirms first, naming the branch, the remote and the commit count. No
   agent-reachable path touches them. Force-push, `reset --hard`, merge and rebase are
@@ -84,13 +84,13 @@ Consequences to respect:
 ```
 browser (React, Vite)
    |  SSE          (chat stream)
-   |  WebSocket    (terminal bytes, Phase 3)
+   |  WebSocket    (terminal bytes)
    |  fetch        (everything else)
    v
 Fastify (Node)
    |-- spawn: claude -p --output-format stream-json   (cwd = project path)
    |-- simple-git: status / diff / stage / commit / stash / fetch / pull
-   +-- node-pty: one PTY per open terminal            (Phase 3)
+   +-- node-pty: one PTY per open terminal, disposed with its socket
    v
 <wherever your repos live>       the real repo, real working tree
 ~/.flightdeck/state.json          projects + chats + session ids

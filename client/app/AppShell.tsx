@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { Group, Panel, Separator } from 'react-resizable-panels';
 import { toast } from 'sonner';
 import { PanelLeft, PanelRight } from 'lucide-react';
@@ -16,6 +16,14 @@ import { useSettings } from '@/features/settings/useSettings';
 import { useHotkey } from '@/hooks/useHotkey';
 import { detailOf, messageOf } from '@/lib/http';
 import { useWorkspace } from '@/store/workspace';
+
+/**
+ * xterm plus its WebGL addon is roughly half the bundle, and the terminal is opt-in — most sessions
+ * never open one. Loading it on first use keeps the initial payload to the part everyone needs.
+ */
+const TerminalDrawer = lazy(() =>
+  import('@/features/terminal/TerminalDrawer').then((m) => ({ default: m.TerminalDrawer }))
+);
 
 export function AppShell() {
   const { projects, loading, unreachable, add, remove } = useProjects();
@@ -36,6 +44,9 @@ export function AppShell() {
   const toggleChanges = useWorkspace((s) => s.toggleChanges);
   const setPaletteOpen = useWorkspace((s) => s.setPaletteOpen);
   const settingsOpen = useWorkspace((s) => s.settingsOpen);
+  const terminalOpen = useWorkspace((s) => s.terminalOpen);
+  const toggleTerminal = useWorkspace((s) => s.toggleTerminal);
+  const setTerminalOpen = useWorkspace((s) => s.setTerminalOpen);
   const setSettingsOpen = useWorkspace((s) => s.setSettingsOpen);
   const { settings, loaded: settingsLoaded, update: updateSettings, reset: resetSettings } = useSettings();
 
@@ -143,6 +154,8 @@ export function AppShell() {
   useHotkey(',', () => setSettingsOpen(true), { inFields: true });
   // Esc leaves settings. No modifier, and it must work while a field has focus.
   useHotkey('Escape', () => setSettingsOpen(false), { ctrl: false, inFields: true });
+  // Ctrl+J must reach the terminal even while it has focus, which is why it fires inside fields.
+  useHotkey('j', toggleTerminal, { inFields: true });
   useHotkey('b', toggleSidebar);
   useHotkey('g', toggleChanges, { shift: true });
 
@@ -207,15 +220,44 @@ export function AppShell() {
           {sidebarCollapsed ? null : <ResizeHandle />}
 
           <Panel id="chat" minSize="30">
-            <ChatPanel
-              project={project}
-              chat={chat}
-              onCreateChat={() => project && void createChat(project.id)}
-              onChatChanged={(updated) =>
-                setChats((current) => current.map((c) => (c.id === updated.id ? updated : c)))
-              }
-              onRunStateChange={onRunStateChange}
-            />
+            {/* A nested vertical group: chat above, terminal below, with a drag handle between them.
+                Inside the centre column rather than across the window, so the Changes panel stays
+                visible while a build runs. */}
+            <Group orientation="vertical" className="h-full">
+              <Panel id="conversation" minSize="30">
+                <ChatPanel
+                  project={project}
+                  chat={chat}
+                  onCreateChat={() => project && void createChat(project.id)}
+                  onChatChanged={(updated) =>
+                    setChats((current) => current.map((c) => (c.id === updated.id ? updated : c)))
+                  }
+                  onRunStateChange={onRunStateChange}
+                />
+              </Panel>
+
+              {terminalOpen ? (
+                <>
+                  <VerticalHandle />
+                  <Panel id="terminal" defaultSize="34" minSize="15" maxSize="70">
+                    <Suspense
+                      fallback={
+                        <div className="flex h-full items-center justify-center border-t border-border-default bg-(--bg-base) text-[12.5px] text-text-muted">
+                          Loading terminal…
+                        </div>
+                      }
+                    >
+                      <TerminalDrawer
+                        project={project}
+                        shellId={settings.terminalShell}
+                        onShellChange={(id) => void updateSettings({ terminalShell: id })}
+                        onClose={() => setTerminalOpen(false)}
+                      />
+                    </Suspense>
+                  </Panel>
+                </>
+              ) : null}
+            </Group>
           </Panel>
 
           {changesCollapsed ? null : (
@@ -255,11 +297,18 @@ export function AppShell() {
   );
 }
 
-/** The drag target between two panels. Kept 1px wide so it reads as a divider, and
- *  widened on hover so it is actually grabbable. */
+/** The horizontal drag target between two panels. Kept 1px so it reads as a divider, widened on
+ *  hover so it is actually grabbable. */
 function ResizeHandle() {
   return (
     <Separator className="w-px shrink-0 bg-border-subtle transition-colors duration-(--duration-fast) hover:w-[3px] hover:bg-accent-bright data-[state=drag]:bg-accent-bright" />
+  );
+}
+
+/** Same idea, rotated: the divider between chat and terminal. */
+function VerticalHandle() {
+  return (
+    <Separator className="h-px shrink-0 bg-border-default transition-colors duration-(--duration-fast) hover:h-[3px] hover:bg-accent-bright data-[state=drag]:bg-accent-bright" />
   );
 }
 

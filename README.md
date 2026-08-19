@@ -75,8 +75,7 @@ diff` is the audit log and `git restore` is the undo.
 - Git identity — see who the next commit will be attributed to and switch per repository in
   one click, without touching your global config
 
-**Not built yet:** branch switching, commit history, sub-chats, the terminal drawer,
-per-project verify command. See
+**Not built yet:** commit history, sub-chats, per-project verify command. See
 [FEATURES.md](./FEATURES.md) for the full inventory and which phase each belongs to.
 
 ## Documentation

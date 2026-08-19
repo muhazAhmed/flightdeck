@@ -188,14 +188,46 @@ tool is that the risky half stays in your hands.
 
 ### Terminal (Phase 3)
 
-`WS /ws/terminal?projectId=<id>`
+`GET /api/terminal/shells` → `{profiles: ShellProfile[], defaultId}`
+
+Detected, never assumed: PowerShell 7 (PATH or `Program Files/PowerShell/7`), Windows PowerShell
+(`%SystemRoot%`), `COMSPEC`, Git Bash (derived from `git` on PATH — `<gitRoot>/bin/bash.exe`), and one
+entry per WSL distro. Elsewhere: `$SHELL`, then zsh/bash/fish/sh where they exist. Anything that
+fails its `existsSync` probe is simply not offered, so the picker can never list a shell that will not
+start.
+
+`wsl --list --quiet` writes **UTF-16LE**. Decoded as UTF-8 it yields NUL-interleaved names that pass a
+"returns strings" check and then fail to launch, so the decode is pinned by a test.
+
+`WS /ws/terminal?projectId=<id>&shell=<profileId>`
 
 | Direction | Message |
 |---|---|
-| client → server | `{type:"input", data:"ls\r"}` |
+| client → server | `{type:"input", data:"ls
+"}` |
 | client → server | `{type:"resize", cols, rows}` |
+| server → client | `{type:"ready", shell, shellId, cwd, scrollback}` — first message, before any output |
 | server → client | `{type:"output", data:"..."}` |
-| server → client | `{type:"exit", code}` |
+| server → client | `{type:"exit", code}` — the shell ended; the server closes the socket after it |
+| server → client | `{type:"error", message, detail?}` — could not start; the socket closes |
 
-One PTY per socket, `cwd` = project path, shell = `powershell.exe` on Windows. Dispose
-the PTY on socket close — a refresh must not leak a process.
+One PTY per socket, `cwd` = the project path. The shell is `?shell=` if it resolves, else
+`settings.terminalShell`, else the first detected profile (`FLIGHTDECK_SHELL` overrides all of them).
+An **unknown id falls back to the default rather than erroring** — a profile disappears when a shell is
+uninstalled, and a stale setting must not cost you a terminal. `ready` echoes `shellId` so the picker
+shows what actually started, not what was asked for.
+
+Switching profiles opens a new socket; the program behind a PTY is fixed at spawn.
+
+Verified on Windows by opening a socket per detected profile and running a command: PowerShell, cmd
+and Git Bash all ran. WSL reported `ready` and the distro then failed to mount
+(`Wsl/Service/CreateInstance/MountDisk/HCS/E_ACCESSDENIED`) — an environment problem on that machine,
+surfaced verbatim in the terminal with exit code -1, which is the correct behaviour: detection can see
+that WSL is installed, not that it will start.
+
+**Disposal is the load-bearing part.** `close` and `error` both dispose, and shutdown walks the whole
+map — a shell that outlives its socket keeps running against the repository with nobody attached.
+Verified by terminating two sockets without a close handshake and confirming both shells were gone.
+
+Reconnecting starts a **fresh** shell rather than reattaching: a PTY holds no replayable history, so
+pretending to resume would present an empty screen mid-session.

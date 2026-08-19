@@ -19,7 +19,7 @@ database.
   DESIGN.md) · **sonner** for toasts
 - **`simple-git`** for git reads and staging · **`server/git-exec.ts`** (direct `spawn`) for
   remote and config operations — simple-git blocks inherited `GIT_ASKPASS`/`GIT_EDITOR`, see
-  DECISIONS.md · **`node-pty` + `xterm.js`** for the Phase 3 terminal
+  DECISIONS.md · **`node-pty` + `xterm.js`** over a WebSocket for the terminal (lazy chunk)
 - **No Monaco.** Diffs are parsed by `client/features/changes/parseDiff.ts` (pure,
   tested) and rendered with our own tokens — see DECISIONS.md
 - Agent = the **`claude` CLI headless**, spawned per chat
