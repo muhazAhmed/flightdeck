@@ -43,7 +43,7 @@ reviewable and a PR from `main` is a nuisance to update.
 | `chore/` | dependencies, tooling, housekeeping |
 
 Good: `fix/attachment-read-permission`, `feat/cross-repo-search`, `docs/contributing-guide`.
-Not: `patch-1`, `muhaz-changes`, `fix-stuff`, `dev`.
+Not: `patch-1`, `my-changes`, `fix-stuff`, `dev`.
 
 One branch is one change. If you cannot describe it in the branch name, it is probably two branches.
 
@@ -134,7 +134,9 @@ These are enforced in review, and several have tests that will fail if you break
 6. **The agent never commits, pushes, or switches branches.** It edits the working tree; the human reviews and
    commits. This is the whole safety model. Do not add a route that breaks it.
 7. **No new dependency without a reason in the commit message.**
-8. **Windows first, never Windows-only.** Always pass argv arrays, never concatenated command strings. Paths
+8. **No machine, client or personal name anywhere** — not in code, a comment, a fixture, a doc example or a
+   placeholder. `test/portability.test.ts` enforces it. Use `C:/repos/app`, `/home/dev/app`, `you@example.com`.
+9. **Windows first, never Windows-only.** Always pass argv arrays, never concatenated command strings. Paths
    have backslashes and sometimes spaces. Every platform-specific or machine-specific value belongs in
    `server/platform.ts` — a path literal anywhere else is a bug, because this project must run on a machine
    that looks nothing like the author's.

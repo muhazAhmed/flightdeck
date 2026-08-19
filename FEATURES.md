@@ -15,7 +15,7 @@ What the tool does, grouped by area, each tagged with the phase it lands in.
 | Deck — every project at once | **done** | The one screen an editor cannot have. A card per project: branch, uncommitted count, how long that work has been sitting, ahead/behind, last commit, last agent run. Ranked by what wants you, not alphabetically, so work rotting since Tuesday sits above six clean repos. One button fetches every remote so ahead/behind stops being a stale zero. No agent, no tokens. `Ctrl+Shift+D`. |
 | Project list in sidebar | **partly** | Name, path, expandable chat list and a running indicator are in. **Branch and changed-file count on the row are not** — the deck shows both, the sidebar does not. |
 | Rename / remove from list | **partly** | Removing works and never touches the folder on disk. **Rename has a route (`PATCH /api/projects/:id`) and no UI.** |
-| Nested repos as separate projects | **done** | `com8_realty/web/Com8-Reality` and `com8_realty_server` are two projects. No special casing. |
+| Nested repos as separate projects | **done** | `acme/web/storefront` and `acme-server` are two projects. No special casing. |
 | `Ctrl+K` jump to any project or chat | **done** | The real answer to "twenty projects is hard to manage". Two keystrokes and a few letters. |
 | Per-project default permission mode | **partly** | Stored per project and seeded from settings when a project is added. **No per-project UI to change it afterwards** — the route accepts it, nothing calls it. |
 | Git identity switcher | **done** | Shows who the next commit will be attributed to, right above the commit box, and switches in one click. Writes `--local` only, so the machine default is never changed. Saved identities persist for reuse. |

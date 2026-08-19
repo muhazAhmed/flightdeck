@@ -12,7 +12,7 @@ import { transcriptDirFor } from '../server/platform.ts';
 const projects = (name: string) => join(homedir(), '.claude', 'projects', name);
 
 test('a windows path encodes the drive colon and each separator as its own dash', () => {
-  assert.equal(transcriptDirFor('E:\\muhaz\\flightdeck'), projects('E--muhaz-flightdeck'));
+  assert.equal(transcriptDirFor('E:\\repos\\app'), projects('E--repos-app'));
 });
 
 test('a posix path encodes its leading slash too', () => {

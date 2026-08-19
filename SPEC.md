@@ -11,7 +11,7 @@ Not deployed. Not multi-user. No auth. Runs on `localhost` on one machine.
 ## Why this exists
 
 VS Code is good at one project at a time. With ~20 repos on disk (the author keeps
-them under `E:\muhaz\CStudio`; the tool assumes nothing about where yours live),
+them under one parent folder; the tool assumes nothing about where yours live),
 the cost is not the editing — it is the *switching*: a window per project, a chat per
 window, and no memory of what the last conversation about that repo was.
 
@@ -112,7 +112,7 @@ claude -p \
   browser over SSE and rendered as prose + tool cards.
 - Multi-turn: keep the process alive and write JSON messages to stdin, or re-invoke
   with `--resume <sessionId>`.
-- `--add-dir` for a project that legitimately spans folders (e.g. `com8_realty`).
+- `--add-dir` for a project that legitimately spans folders (e.g. `acme`).
 - **Do not use `--bare`** — its own docs state OAuth is never read and an API key is
   required. The plain form is what keeps this on the subscription.
 
@@ -125,7 +125,7 @@ too, swapping transport is then one file, not a rewrite.
 A chat *is* a session id. Nothing more.
 
 ```
-Project (com8_studio)
+Project (api-server)
 |-- Chat "article schema"        session 7f3a...  permissionMode: acceptEdits
 |   +-- Sub-chat "sanity side"   session 91b2...  (parentChatId set)
 +-- Chat "perf pass"             session c4d1...
@@ -143,7 +143,7 @@ Claude Code already persists this, so Flight Deck stores no message history of i
 Transcripts live under `~/.claude/projects/<encoded-cwd>/` as JSONL — one record per
 event, each with `type` (`user` / `assistant` / `attachment` / ...), a `message`
 `{role, content}`, `uuid`, `timestamp`, and `cwd`. Encoded cwd example:
-`E:\muhaz\CStudio\com8-sanity` becomes `E--muhaz-CStudio-com8-sanity`.
+`C:\repos\cms` becomes `C--repos-cms`.
 
 Replay = locate the file for `sessionId`, parse the JSONL, and render it through the
 same components the live stream uses. Confirm the exact main-transcript filename at
@@ -161,9 +161,9 @@ Phase 1 may resume without replay; Phase 2 renders it.
   "lastBrowsedDir": null,                    // where the picker reopens; null on a fresh install
   "projects": [
     {
-      "id": "com8_studio",
+      "id": "api-server",
       "name": "Com8 Studio",
-      "path": "E:\\muhaz\\CStudio\\com8_studio",
+      "path": "C:\\repos\\api-server",
       "addedAt": "2026-08-18T00:00:00Z",
       "defaultPermissionMode": "acceptEdits",
       "verifyCommand": "npm run build"      // optional, offered as a one-click check
@@ -172,7 +172,7 @@ Phase 1 may resume without replay; Phase 2 renders it.
   "chats": [
     {
       "id": "...",
-      "projectId": "com8_studio",
+      "projectId": "api-server",
       "parentChatId": null,
       "title": "article schema",
       "sessionId": "7f3a...",               // the --session-id UUID

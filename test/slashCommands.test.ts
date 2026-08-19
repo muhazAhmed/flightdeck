@@ -14,7 +14,7 @@ import { filterCommands, slashQuery } from '../client/features/chat/SlashMenu.ts
  * silently did nothing would be worse than none.
  *
  * (That check also surfaced a Git Bash trap: `claude -p "/hello"` from a bash prompt has the argument
- * path-translated to `E:/muhaz/Git/hello` before the CLI sees it. Flight Deck sends prompts as JSON on stdin,
+ * path-translated to `D:/tools/Git/hello` before the CLI sees it. Flight Deck sends prompts as JSON on stdin,
  * so it is immune — but it is why the first attempt looked like slash commands did not work.)
  */
 function project(): string {

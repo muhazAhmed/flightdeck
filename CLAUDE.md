@@ -40,7 +40,11 @@ database.
    the human reviews and commits. No `push`, no `reset --hard`, no `merge` routes exist.
 7. **No new dependency without a reason in the commit message.** This tool should stay
    small enough to understand in one sitting.
-8. **Windows first, never Windows-only.** Always pass argv arrays, never concatenated
+8. **No machine, client or personal name anywhere.** Not in code, not in a comment, not in a fixture, not in a
+   doc example, not as placeholder text. `test/portability.test.ts` enforces this and will fail the build —
+   including a regression list of names that leaked once already. Use `C:/repos/app`, `/home/dev/app`,
+   `you@example.com`.
+9. **Windows first, never Windows-only.** Always pass argv arrays, never concatenated
    command strings. Paths have backslashes and sometimes spaces. Every platform-specific
    or machine-specific value belongs in `server/platform.ts` — a path literal anywhere
    else is a bug, because this project is intended to be open-sourced and must run on a

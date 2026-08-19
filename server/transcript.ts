@@ -11,7 +11,7 @@
  *   ~/.claude/projects/<encoded-cwd>/<sessionId>.jsonl
  *
  * where the encoding replaces path separators and the drive colon with dashes:
- * `E:\muhaz\flightdeck` becomes `E--muhaz-flightdeck`. A session directory of the same
+ * `C:\repos\app` becomes `C--repos-app`. A session directory of the same
  * name may sit alongside the file holding `subagents/*.jsonl`; those are nested runs and
  * are not replayed at top level.
  *

@@ -74,8 +74,8 @@ export function ProjectSidebar({
     setExpanded((current) => (current.has(selectedProjectId) ? current : new Set(current).add(selectedProjectId)));
   }, [selectedProjectId]);
 
-  // Matches name or path: with a dozen repos, "realty" and "web/Com8" are both things people
-  // reach for.
+  // Matches name or path: with a dozen repos, a project name and a path fragment like "web/" are both
+  // things people reach for.
   const visible = useMemo(() => {
     const needle = query.trim().toLowerCase();
     if (!needle) return projects;

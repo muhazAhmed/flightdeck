@@ -207,8 +207,8 @@ function AddIdentityDialog({
 
           <div className="flex flex-col gap-2">
             <Field label="Label" value={label} placeholder="Company" onChange={setLabel} />
-            <Field label="user.name" value={name} placeholder="com8studio" onChange={setName} mono />
-            <Field label="user.email" value={email} placeholder="tech@com8.io" onChange={setEmail} mono />
+            <Field label="user.name" value={name} placeholder="your name" onChange={setName} mono />
+            <Field label="user.email" value={email} placeholder="you@example.com" onChange={setEmail} mono />
           </div>
 
           <div className="mt-4 flex justify-end gap-2">

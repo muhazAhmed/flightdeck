@@ -274,7 +274,7 @@ is described by its first non-heading line.
 exactly SLASHWORKS" returned `SLASHWORKS` through `claude -p`, and again through Flight Deck's own stream.
 
 One trap worth recording: `claude -p "/hello"` typed at a Git Bash prompt has the argument path-translated to
-`E:/muhaz/Git/hello` before the CLI sees it, which made the first attempt look like slash commands did not work
+`D:/tools/Git/hello` before the CLI sees it, which made the first attempt look like slash commands did not work
 headless at all. Flight Deck sends prompts as JSON on stdin, so it is immune — but testing this from bash needs
 `MSYS_NO_PATHCONV=1`.
 

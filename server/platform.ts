@@ -59,7 +59,7 @@ export function defaultBrowseDir(): string {
 
 /**
  * How Claude Code encodes a working directory into a transcript folder name, e.g.
- * `E:\muhaz\flightdeck` becomes `E--muhaz-flightdeck`. Used to locate a session's
+ * `C:\repos\app` becomes `C--repos-app`. Used to locate a session's
  * transcript for history replay (Phase 2).
  *
  * Derived from the observed format rather than documented, so treat a miss as "no
@@ -68,8 +68,8 @@ export function defaultBrowseDir(): string {
 export function transcriptDirFor(cwd: string): string {
   // EVERY separator becomes its own dash. The drive prefix in a Windows path is two
   // characters (colon then backslash) and therefore two dashes:
-  // `E:\muhaz\flightdeck` -> `E--muhaz-flightdeck`. Collapsing runs (a `+` in the pattern)
-  // yields `E-muhaz-flightdeck`, a directory that exists nowhere, and history replay then
+  // `C:\repos\app` -> `C--repos-app`. Collapsing runs (a `+` in the pattern)
+  // yields `C-repos-app`, a directory that exists nowhere, and history replay then
   // silently finds nothing at all.
   const encoded = cwd.replace(/[\\/:]/g, '-');
   return join(homedir(), '.claude', 'projects', encoded);

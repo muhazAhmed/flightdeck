@@ -12,12 +12,12 @@ import { useWorkspace } from '../client/store/workspace.ts';
 const project: Project = {
   id: 'flightdeck',
   name: 'flightdeck',
-  path: 'E:\muhaz\flightdeck',
+  path: 'C:/repos/flightdeck',
   addedAt: new Date(0).toISOString(),
   defaultPermissionMode: 'acceptEdits'
 };
 
-const second: Project = { ...project, id: 'other', name: 'other', path: 'E:\muhaz\other' };
+const second: Project = { ...project, id: 'other', name: 'other', path: 'C:/repos/other' };
 
 const chat: Chat = {
   id: 'c1',

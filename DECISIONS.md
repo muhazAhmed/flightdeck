@@ -81,7 +81,7 @@ sandbox, `git diff` is the audit log, `git restore` is the undo. It is also what
 
 ### 2026-08-18 · Manual project list, not auto-scan
 
-`E:\muhaz\CStudio` contains ~22 git repos, several nested (`com8_realty/web/*`) and
+The author’s projects folder contains ~22 git repos, several nested (`parent/web/*`) and
 several disposable (`temp/`, tutorials). An auto-scanner would have to guess which are
 real projects and would surface noise on every launch. Adding a project takes one
 folder pick.
@@ -289,8 +289,8 @@ The narrowing is what makes it safe to offer:
 ### 2026-08-18 · Two bugs found by running the thing
 
 **Transcript path encoding.** `transcriptDirFor` collapsed runs of separators
-(`/[\/:]+/`), so `E:\muhaz\flightdeck` encoded as `E-muhaz-flightdeck` while the real
-directory is `E--muhaz-flightdeck` — the drive colon and the following backslash are two
+(`/[\/:]+/`), so `C:\repos\app` encoded as `C-repos-app` while the real
+directory is `C--repos-app` — the drive colon and the following backslash are two
 characters and therefore two dashes. History replay found nothing and reported no error,
 because a missing transcript is legitimately "no history". Fixed to replace each character,
 and pinned with tests, since the failure mode is silence.
@@ -451,7 +451,7 @@ A reference design was supplied. What was adopted, and what was not, on purpose:
 
 **Taken.** Staged / Unstaged as tabs with counts — stacked groups made a long changed-list push
 staged files off-screen, and the tab bar states both counts at a glance. Two-line project rows,
-because a repo's path is what distinguishes `Com8-Reality` from `com8_realty_server`. Project
+because a repo's path is what distinguishes `storefront` from `acme-server`. Project
 search. A model picker in the chat header. A sidebar footer with the git identity. A real empty
 state with suggestion cards. Larger type: 14.5/22, with secondary text at 12.5–13px.
 
@@ -902,7 +902,7 @@ Two things worth knowing for anyone touching this:
 
 A picker that lists shells the machine does not have is worse than no picker: every wrong entry is a
 terminal that opens and dies. So `server/shells.ts` probes — `existsSync` for each candidate, `git` on
-PATH to locate Git Bash (on the author's machine that is `E:/muhaz/Git/bin/bash.exe`, nowhere near
+PATH to locate Git Bash (on one machine that was `D:/tools/Git/bin/bash.exe`, nowhere near
 Program Files), and `wsl.exe` itself for the distro list. Whatever fails its probe is not offered.
 
 `wsl --list --quiet` writes **UTF-16LE**. Read as UTF-8 it produces NUL-interleaved names — a bug that
@@ -1359,7 +1359,7 @@ run through `claude -p`, because autocomplete for something that silently did no
 autocomplete at all. It returned `SLASHWORKS`, and later did so again through Flight Deck's own stream.
 
 That check also produced a false negative worth recording: `claude -p "/hello"` at a Git Bash prompt answers
-"what would you like me to do with `E:/muhaz/Git/hello`", because MSYS path-translates any argument beginning
+"what would you like me to do with `D:/tools/Git/hello`", because MSYS path-translates any argument beginning
 with a slash. It looked exactly like slash commands not working headless. Flight Deck sends prompts as JSON on
 stdin and is immune, but anyone testing this from bash needs `MSYS_NO_PATHCONV=1`.
 
@@ -1372,3 +1372,47 @@ instead of completing it to `/deploy`. The menu takes Enter, Tab and the arrows 
 asserts that guard sits before the send. The menu opens upward because the input is already at the bottom of the
 window, and picking happens on `mousedown` because the textarea's blur would otherwise close the menu before a
 click could land.
+
+## Portability is now enforced, not trusted
+
+Asked directly: why does the repository mention a specific drive and username at all, and would that stop anyone
+else running the tool?
+
+**It would not have.** Every occurrence was a comment, a test fixture or the project's own GitHub URL. Nothing
+resolved a machine path at runtime — `platform.ts` composes every location from `homedir()` and this module's own
+URL, and the audit confirmed not one absolute path literal outside `server/shells.ts`, where `C:\Windows` and
+`/bin/sh` are OS constants rather than facts about a machine.
+
+But three of those occurrences were worse than untidy:
+
+**The captured sample leaked client work.** `docs/stream-sample.jsonl` is a real run, so it arrived carrying the
+author's home directory, the installed plugin and skill list, and the names and paths of real client
+repositories. Two tests read that file, so it was sanitised by substitution with a structural fingerprint —
+record types, key sets and value kinds — asserted identical before and after. The tests that read it care about
+shapes, not strings, and both still pass.
+
+**A fixture path was quietly broken.** `path: 'E:\muhaz\flightdeck'` in a test contained `\f`, which JavaScript
+reads as a formfeed, so the fixture's project path was `E:\muhaz<FF>lightdeck`. Harmless, since nothing touched
+disk with it, but it is exactly the failure that makes a Windows path literal a bad idea in the first place.
+Fixtures now use forward slashes.
+
+**A real client identity was UI placeholder text.** The git identity fields suggested a client's name and email
+address as examples. Now `your name` and `you@example.com`.
+
+The durable part is `test/portability.test.ts`, which turns CLAUDE.md rule 8 from a convention someone has to
+remember into a failing build. Nine assertions: no author name outside the repository link, no home-directory
+path in shipped code, `platform.ts` composing rather than containing, absolute literals confined to the shell
+module and only as OS constants, no assumed projects folder, a clean sample that is still a full capture, no
+hardcoded URLs beyond a short allowed list, and a regression list of the client names that leaked once already.
+
+It was written twice. The first version failed on four legitimate cases — the project's own URL, an
+`example.com` fixture, a generic `/home/dev/` encoding fixture, and the test naming the terms it searches for.
+A guard that cries wolf gets deleted, so the exceptions are named and justified rather than the thresholds
+loosened, and the file excludes itself because it necessarily contains the strings it looks for.
+
+Then it was verified by planting `const FALLBACK = 'C:\Users\muhaz\repos'` in a route: three separate assertions
+caught it. Worth noting that the *first* attempt to plant it silently did nothing — the anchor string it replaced
+did not exist in that file — and the run came back green. A verification that quietly fails to verify is the same
+trap as a test that passes for the wrong reason, so the plant now asserts its own presence before the guard is
+run.
+"""

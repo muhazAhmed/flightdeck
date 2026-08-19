@@ -3,7 +3,8 @@
  *
  * Detection rather than a hardcoded list: the point of a profile picker is that it offers what is
  * installed here, and "Git Bash" is at a different path on every machine — on this one it is
- * `E:\muhaz\Git\bin\bash.exe`, nowhere near Program Files.
+ * `D:\tools\Git\bin\bash.exe` on a machine where git was installed off the system drive,
+ * nowhere near Program Files.
  *
  * Everything is probed on disk or asked of the tool itself. Nothing is assumed, and a probe that
  * fails simply omits that profile rather than offering something that cannot start.
