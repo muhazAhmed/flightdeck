@@ -1,7 +1,8 @@
 import { useMemo } from 'react';
-import type { DiffHunk } from '@shared/types';
+import type { DiffHunk, DiffLine } from '@shared/types';
 import { cn } from '@/lib/cn';
 import { countLines, diffStats, parseDiff } from './parseDiff';
+import { pairHunkLines, type WordDiff } from './wordDiff';
 
 interface DiffViewProps {
   diff: string;
@@ -27,6 +28,18 @@ const MARKERS: Record<DiffHunk['lines'][number]['kind'], string> = {
 
 export function DiffView({ diff, maxLines = DEFAULT_MAX_LINES }: DiffViewProps) {
   const hunks = useMemo(() => parseDiff(diff), [diff]);
+  /*
+   * Word-level highlighting, computed once per diff rather than per render.
+   *
+   * Keyed by hunk header because that is what the rows are keyed by, and the header is unique within a diff.
+   * The work is O(tokens²) per changed pair, which is nothing at these sizes — but it is not free, and a
+   * scrolling list must not redo it.
+   */
+  const wordDiffs = useMemo(() => {
+    const byHunk = new Map<string, Map<number, WordDiff>>();
+    for (const hunk of hunks) byHunk.set(hunk.header, pairHunkLines(hunk.lines));
+    return byHunk;
+  }, [hunks]);
   const stats = useMemo(() => diffStats(hunks), [hunks]);
   const total = useMemo(() => countLines(hunks), [hunks]);
 
@@ -76,7 +89,9 @@ export function DiffView({ diff, maxLines = DEFAULT_MAX_LINES }: DiffViewProps) 
                 >
                   {MARKERS[line.kind]}
                 </span>
-                <span className="min-w-0 flex-1 text-text-primary">{line.text || ' '}</span>
+                <span className="min-w-0 flex-1 text-text-primary">
+                  <LineText kind={line.kind} text={line.text} diff={wordDiffs.get(hunk.header)?.get(index)} />
+                </span>
               </div>
             ))}
           </div>
@@ -104,3 +119,33 @@ function limitLines(hunks: DiffHunk[], budget: number): DiffHunk[] {
   }
   return out;
 }
+
+/**
+ * One line's text, with the changed words picked out.
+ *
+ * Falls back to plain text whenever there is no paired line or the pair was too dissimilar to compare — see
+ * wordDiff.ts. `whitespace-pre` on the row means the segments need no special handling for spaces.
+ */
+function LineText({ kind, text, diff }: { kind: DiffLine['kind']; text: string; diff?: WordDiff }) {
+  if (!diff || (kind !== 'add' && kind !== 'del')) return <>{text || ' '}</>;
+
+  const segments = kind === 'add' ? diff.added : diff.removed;
+  const background = kind === 'add' ? 'var(--diff-add-word)' : 'var(--diff-del-word)';
+
+  return (
+    <>
+      {segments.map((segment: WordDiff['added'][number], index: number) =>
+        segment.changed ? (
+          // A rounded run rather than an underline: an underline disappears under a descender and cannot be
+          // seen at all on a line of punctuation.
+          <span key={index} className="rounded-sm" style={{ backgroundColor: background }}>
+            {segment.text}
+          </span>
+        ) : (
+          <span key={index}>{segment.text}</span>
+        )
+      )}
+    </>
+  );
+}
+

@@ -162,6 +162,7 @@ export function ChatPanel({
       </div>
 
       <PromptInput
+        projectId={project.id}
         running={running}
         draft={draft}
         onDraftConsumed={() => setDraft(null)}

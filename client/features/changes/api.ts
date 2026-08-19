@@ -1,5 +1,7 @@
 import { http } from '@/lib/http';
 import type {
+  CommitDetail,
+  HistoryCommit,
   BranchList,
   BranchResult,
   CommitMessageDraft,
@@ -88,3 +90,22 @@ export const branchApi = {
       `/api/git/branch/${encodeURIComponent(branch)}?projectId=${encodeURIComponent(projectId)}&force=${force}`
     )
 };
+
+/**
+ * Commit history. Read-only — there is no revert, reset or cherry-pick here, and no route to add one to.
+ */
+export const historyApi = {
+  log: (projectId: string, skip = 0, limit = 50) =>
+    http.get<{ commits: HistoryCommit[]; hasMore: boolean }>(
+      `/api/git/log?projectId=${encodeURIComponent(projectId)}&skip=${skip}&limit=${limit}`
+    ),
+  commit: (projectId: string, sha: string) =>
+    http.get<CommitDetail>(
+      `/api/git/commit?projectId=${encodeURIComponent(projectId)}&sha=${encodeURIComponent(sha)}`
+    ),
+  diff: (projectId: string, sha: string, path: string) =>
+    http.get<{ diff: string }>(
+      `/api/git/commit-diff?projectId=${encodeURIComponent(projectId)}&sha=${encodeURIComponent(sha)}&path=${encodeURIComponent(path)}`
+    )
+};
+

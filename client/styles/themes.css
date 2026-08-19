@@ -47,6 +47,9 @@
   --diff-add-gutter: #15803d;
   --diff-del-bg: rgb(185 28 28 / 0.1);
   --diff-del-gutter: #b91c1c;
+  /* Lighter ground needs less alpha to read as emphasis without washing the text out. */
+  --diff-add-word: rgb(21 128 61 / 0.28);
+  --diff-del-word: rgb(185 28 28 / 0.28);
 
   --shadow-popover: 0 12px 32px rgb(16 19 25 / 0.16);
 }

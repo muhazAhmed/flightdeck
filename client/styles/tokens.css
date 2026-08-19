@@ -58,6 +58,11 @@
   --diff-add-gutter: #22c55e;
   --diff-del-bg: rgb(239 68 68 / 0.16);
   --diff-del-gutter: #ef4444;
+  /* Word-level emphasis inside a changed line. Deliberately the same hue as the row it sits on, at roughly
+     three times the alpha: the row already says "added", and this says "here". A different hue would read as
+     a third kind of change. */
+  --diff-add-word: rgb(34 197 94 / 0.42);
+  --diff-del-word: rgb(239 68 68 / 0.42);
 
   --shadow-popover: 0 12px 32px rgb(0 0 0 / 0.55);
 

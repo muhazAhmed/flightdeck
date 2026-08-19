@@ -182,6 +182,58 @@ export const DEFAULT_SETTINGS: Settings = {
   lastProjectId: null
 };
 
+// ─── Slash commands ──────────────────────────────────────────────────────
+
+/**
+ * A command or skill the user can type.
+ *
+ * Read off disk from the CLI's own directories, since there is no headless route that lists them. Verified to
+ * actually run in `-p` mode before this existed — see server/commands.ts.
+ */
+export interface SlashCommand {
+  /** Typed after the slash. Subdirectories namespace with a colon, as the CLI does: `/git:sync`. */
+  name: string;
+  source: 'project' | 'user';
+  /** Skills are invoked the same way but are a different kind of thing, so they are labelled. */
+  kind?: 'skill';
+  description: string;
+  argumentHint?: string;
+  /** Absolute path to the definition, shown as the subtitle so there is no doubt which file runs. */
+  path: string;
+}
+
+// ─── Commit history ──────────────────────────────────────────────────────
+
+export interface HistoryCommit {
+  sha: string;
+  shortSha: string;
+  subject: string;
+  author: string;
+  email: string;
+  at: string;
+  /** Decorations git itself prints: branch and tag names pointing here. Empty when there are none. */
+  refs: string[];
+  /** More than one parent means a merge, which is worth marking rather than rendering as a normal commit. */
+  parents: number;
+}
+
+export interface CommitFile {
+  path: string;
+  /** `A`, `M`, `D`, `R`, or `?` when git did not say. */
+  status: string;
+  insertions: number;
+  deletions: number;
+  /** Set for renames: where the file came from. */
+  from?: string;
+}
+
+export interface CommitDetail extends HistoryCommit {
+  body: string;
+  files: CommitFile[];
+  insertions: number;
+  deletions: number;
+}
+
 // ─── Updates ─────────────────────────────────────────────────────────────
 
 /**

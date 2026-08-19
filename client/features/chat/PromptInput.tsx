@@ -7,8 +7,11 @@ import { IconButton } from '@/shared/ui/IconButton';
 import { cn } from '@/lib/cn';
 import { detailOf, messageOf } from '@/lib/http';
 import { attachmentApi } from './api';
+import { filterCommands, SlashMenu, slashQuery, useSlashCommands } from './SlashMenu';
 
 interface PromptInputProps {
+  /** Which project's commands and skills to offer. Null disables the slash menu. */
+  projectId: string | null;
   running: boolean;
   /** Text pushed in from elsewhere (a suggestion card). Loaded for editing, not sent. */
   draft: string | null;
@@ -26,12 +29,20 @@ function sizeLabel(bytes: number): string {
   return kb < 1024 ? `${Math.round(kb)} KB` : `${(kb / 1024).toFixed(1)} MB`;
 }
 
-export function PromptInput({ running, draft, onDraftConsumed, onSend, onStop }: PromptInputProps) {
+export function PromptInput({ projectId, running, draft, onDraftConsumed, onSend, onStop }: PromptInputProps) {
   const [value, setValue] = useState('');
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [uploading, setUploading] = useState(0);
   const [dragging, setDragging] = useState(false);
   const textarea = useRef<HTMLTextAreaElement>(null);
+
+  const allCommands = useSlashCommands(projectId);
+  // Dismissed for the current token: typing `/` again reopens, so Escape is not a permanent off switch.
+  const [slashDismissed, setSlashDismissed] = useState(false);
+  const [slashIndex, setSlashIndex] = useState(0);
+  const query = slashQuery(value);
+  const matches = query === null || slashDismissed ? [] : filterCommands(allCommands, query);
+  const slashOpen = matches.length > 0;
   const filePicker = useRef<HTMLInputElement>(null);
 
   function resize() {
@@ -120,7 +131,48 @@ export function PromptInput({ running, draft, onDraftConsumed, onSend, onStop }:
     requestAnimationFrame(resize);
   }
 
+  /** Put the chosen command in the box with a trailing space, ready for its arguments. */
+  function pick(name: string) {
+    setValue(`/${name} `);
+    setSlashDismissed(true);
+    setSlashIndex(0);
+    requestAnimationFrame(() => {
+      textarea.current?.focus();
+      resize();
+    });
+  }
+
   function onKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
+    /*
+     * The slash menu owns these keys while it is open, and Enter is the one that matters: now that Enter sends,
+     * an unguarded Enter would fire off `/dep` as a prompt instead of completing it to `/deploy`.
+     */
+    if (slashOpen) {
+      if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        setSlashIndex((index) => (index + 1) % matches.length);
+        return;
+      }
+      if (event.key === 'ArrowUp') {
+        event.preventDefault();
+        setSlashIndex((index) => (index - 1 + matches.length) % matches.length);
+        return;
+      }
+      if (event.key === 'Enter' || event.key === 'Tab') {
+        const chosen = matches[Math.min(slashIndex, matches.length - 1)];
+        if (chosen) {
+          event.preventDefault();
+          pick(chosen.name);
+          return;
+        }
+      }
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        setSlashDismissed(true);
+        return;
+      }
+    }
+
     if (event.key !== 'Enter') return;
 
     /*
@@ -151,10 +203,18 @@ export function PromptInput({ running, draft, onDraftConsumed, onSend, onStop }:
     >
       <div
         className={cn(
-          'rounded-lg border bg-surface-2 transition-colors duration-(--duration-fast)',
+          'relative rounded-lg border bg-surface-2 transition-colors duration-(--duration-fast)',
           dragging ? 'border-accent bg-accent-subtle' : 'border-border-default focus-within:border-accent'
         )}
       >
+        {slashOpen ? (
+          <SlashMenu
+            commands={matches}
+            activeIndex={Math.min(slashIndex, matches.length - 1)}
+            onPick={(command) => pick(command.name)}
+            onHover={setSlashIndex}
+          />
+        ) : null}
         {attachments.length > 0 || busy ? (
           <div className="flex flex-wrap gap-1.5 border-b border-border-subtle px-2.5 py-2">
             {attachments.map((attachment) => (
@@ -193,7 +253,11 @@ export function PromptInput({ running, draft, onDraftConsumed, onSend, onStop }:
           placeholder={dragging ? 'Drop files to attach…' : 'Describe what you want changed…'}
           spellCheck={false}
           onChange={(event) => {
-            setValue(event.target.value);
+            const next = event.target.value;
+            // A new slash token reopens the menu; anything else leaves the dismissal alone.
+            if (slashQuery(next) === '') setSlashDismissed(false);
+            setValue(next);
+            setSlashIndex(0);
             resize();
           }}
           onKeyDown={onKeyDown}

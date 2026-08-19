@@ -96,6 +96,7 @@ twenty repos have uncommitted work?" costs twenty windows to answer. Here it is 
 - **Reopening a chat replays its history** — read from Claude Code's own transcripts, not a second copy
 - **Adopt sessions started elsewhere** — a run from your terminal or editor can be imported and continued
 - Attach files and screenshots: bytes go to disk, the *path* goes in the prompt, so a 2 MB image never becomes 2 MB of context
+- **Slash command autocomplete** — type `/` for the project's commands and your skills, with descriptions and argument hints
 - Quota chip from `rate_limit_event` — know before starting something big
 
 ### Source control
@@ -104,6 +105,8 @@ twenty repos have uncommitted work?" costs twenty windows to answer. Here it is 
 - Stage, unstage, discard, commit, stash and stash pop — destructive actions name the exact files
 - Fetch, pull (`--ff-only`, refuses on a dirty tree) and push (never forced, shows the commit count first)
 - Branch list with each branch's last commit; checkout, create, delete, remote branches as tracking branches
+- **Commit history** — a History tab with branch and tag chips, merge markers, per-file counts, and the diff of any file in any commit
+- **Word-level diff highlighting** — the changed words inside a changed line, so a renamed identifier reads at a glance
 - **Drafted commit messages** — reads the staged diff and writes an imperative subject; it lands in the box for editing and never commits
 - **Per-repo git identity** — see who the next commit will be attributed to and switch in one click, `--local` only
 - **Live updates while the agent works** — files appear as they are written, driven by the stream's own tool events

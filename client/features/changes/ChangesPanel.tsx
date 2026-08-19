@@ -24,6 +24,7 @@ import { detailOf, messageOf } from '@/lib/http';
 import { gitApi } from './api';
 import { BranchMenu } from './BranchMenu';
 import { DiffView } from './DiffView';
+import { HistoryPanel } from './HistoryPanel';
 import { IdentityBar } from './IdentityBar';
 import { useGitPanel, type SelectedFile } from './useGitPanel';
 
@@ -35,7 +36,7 @@ interface ChangesPanelProps {
   confirmLevel: ConfirmLevel;
 }
 
-type Tab = 'unstaged' | 'staged';
+type Tab = 'unstaged' | 'staged' | 'history';
 
 /** Colour follows git's meaning, never the accent: green added, red deleted, amber modified. */
 const STATUS_COLOR: Record<string, string> = {
@@ -63,6 +64,8 @@ export function ChangesPanel({ project, revision, confirmLevel }: ChangesPanelPr
   // Follow the work: staging everything empties Unstaged, committing empties Staged. Move to
   // whichever side has content rather than leaving the user on a blank tab.
   useEffect(() => {
+    // Only ever moves between the two working-tree tabs. Yanking someone out of History because they staged a
+    // file would be the panel overruling a deliberate choice.
     if (tab === 'unstaged' && changed.length === 0 && staged.length > 0) setTab('staged');
     else if (tab === 'staged' && staged.length === 0 && changed.length > 0) setTab('unstaged');
   }, [tab, staged.length, changed.length]);
@@ -280,9 +283,14 @@ export function ChangesPanel({ project, revision, confirmLevel }: ChangesPanelPr
           <TabButton active={tab === 'staged'} count={staged.length} tone="staged" onClick={() => setTab('staged')}>
             Staged
           </TabButton>
+          <TabButton active={tab === 'history'} onClick={() => setTab('history')}>History</TabButton>
         </div>
       </header>
 
+      {tab === 'history' ? (
+        <HistoryPanel projectId={project.id} revision={revision} />
+      ) : (
+        <>
       <div className="min-h-0 flex-1 overflow-y-auto">
         {git.error ? (
           <p className="px-4 py-3 text-[13px] text-danger">{git.error}</p>
@@ -477,6 +485,8 @@ export function ChangesPanel({ project, revision, confirmLevel }: ChangesPanelPr
           </p>
         </div>
       </footer>
+        </>
+      )}
 
       <ConfirmDialog request={confirm} onClose={() => setConfirm(null)} />
     </aside>
@@ -491,8 +501,9 @@ function TabButton({
   children
 }: {
   active: boolean;
-  count: number;
-  tone: BadgeTone;
+  /** Omitted for tabs that are not a set of files — History counts nothing useful. */
+  count?: number;
+  tone?: BadgeTone;
   onClick: () => void;
   children: ReactNode;
 }) {
@@ -510,7 +521,7 @@ function TabButton({
       )}
     >
       {children}
-      <CountBadge value={count} tone={tone} />
+      {count === undefined || tone === undefined ? null : <CountBadge value={count} tone={tone} />}
     </button>
   );
 }

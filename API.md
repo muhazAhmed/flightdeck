@@ -232,6 +232,52 @@ Verified by terminating two sockets without a close handshake and confirming bot
 Reconnecting starts a **fresh** shell rather than reattaching: a PTY holds no replayable history, so
 pretending to resume would present an empty screen mid-session.
 
+### Commit history
+
+`GET /api/git/log?projectId=&limit=&skip=` → `{commits, hasMore}`
+`GET /api/git/commit?projectId=&sha=` → `CommitDetail`
+`GET /api/git/commit-diff?projectId=&sha=&path=` → `{diff}`
+
+Read-only, with no route that could become a revert or a reset. Looking back at a commit is a different act
+from undoing it, and the second belongs in a terminal.
+
+**Every client value is shape-checked before it becomes a git argument.** A sha must match
+`/^[0-9a-f]{4,40}$/` — which rejects `HEAD`, `main`, `--upload-pack=evil` and anything carrying a shell
+character — and a file path is passed after `--`, so a file called `--output=x` is a path and not a flag.
+
+Paging asks for `limit + 1` rows and reports `hasMore` from the overflow, so a 40,000-commit repository never
+pays for a count. `skip` rather than a cursor: git counts from HEAD, so a commit made mid-scroll shifts the
+window by one, which shows a row twice rather than losing one — and the client de-duplicates by sha.
+
+Parsing quirks, each verified against real git output in `test/history.test.ts`:
+
+- `%D` prints `HEAD -> main, tag: v1`; splitting on the comma first collapses `HEAD -> main` to one `main` chip.
+- A rename arrives as `dir/{old => new}.ts` with the shared prefix factored out, which a naive split on ` => `
+  gets wrong.
+- A binary file reports `-` where a count belongs, so `Number(x) || 0` and not `Number(x)`. NaN would render
+  as "NaN".
+- `--numstat` gives counts but no status letter; `--name-status` supplies it.
+- An empty repository makes `git log` fail; that is "no commits yet", not an error.
+- The commit body is fetched as its own `--format=%b` call, because a message can contain the separator the
+  format string uses.
+
+### Slash commands
+
+`GET /api/commands?projectId=` → `{commands: SlashCommand[]}`
+
+Commands from `.claude/commands/**/*.md` and skills from `.claude/skills/*/SKILL.md`, project level then user
+level, project winning a name clash. Subdirectories namespace with a colon (`/git:sync`), which is the CLI's own
+convention. Frontmatter supplies `description` and `argument-hint`; a file without frontmatter still works and
+is described by its first non-heading line.
+
+**Verified that the CLI runs them headless before any of this was built**: a command containing "reply with
+exactly SLASHWORKS" returned `SLASHWORKS` through `claude -p`, and again through Flight Deck's own stream.
+
+One trap worth recording: `claude -p "/hello"` typed at a Git Bash prompt has the argument path-translated to
+`E:/muhaz/Git/hello` before the CLI sees it, which made the first attempt look like slash commands did not work
+headless at all. Flight Deck sends prompts as JSON on stdin, so it is immune — but testing this from bash needs
+`MSYS_NO_PATHCONV=1`.
+
 ### Updates
 
 `GET /api/update` -> `UpdateStatus` (local only, no network)

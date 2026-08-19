@@ -1308,3 +1308,67 @@ the same ReferenceError before restoring.
 engineering around: any half-finished client edit takes the window you are working in with it, and the recovery
 is a terminal. `npm run typecheck` after an agent touches client code is the cheap guard; doing that work in a
 second checkout is the safe one.
+
+## Commit history is read-only, and paged by skip
+
+A History tab beside Staged and Unstaged, because a past commit is still source control rather than a separate
+place. It lists commits, expands to their files, and shows any file's diff through the same renderer as the
+working tree — so a change reads the same whether it is five minutes or five months old.
+
+**No revert, no reset, no cherry-pick, and no route that could become one.** A test asserts those words appear
+nowhere in the file and that history registers no write routes at all. Looking back at a commit is a different
+act from undoing it; the second belongs in a terminal where it is deliberate.
+
+Paging asks for one row more than it shows and reports `hasMore` from the overflow, so a repository with 40,000
+commits never pays for a count. `skip` rather than a cursor, because git counts from HEAD: a commit made
+mid-scroll shifts the window by one, which duplicates a row rather than skipping one, and the client
+de-duplicates by sha.
+
+Five parsing details, each found by running real git rather than writing fixtures: `%D` prints `HEAD -> main`,
+which collapses to a single chip; a rename arrives as `dir/{old => new}.ts` with the prefix factored out; a
+binary file reports `-` where a count belongs, so `Number(x) || 0` and not `Number(x)`; `--numstat` has no
+status letter and `--name-status` supplies it; and an empty repository makes `git log` fail, which is "no
+commits yet" rather than an error. The commit body is a separate `--format=%b` call, because a message can
+contain the separator the format string uses.
+
+## Word-level diff: similarity counts words, not punctuation
+
+A unified diff says a line went out and another came in. When one identifier changed inside eighty characters,
+reading it means comparing two nearly identical rows by eye — so the changed words are picked out inside the
+row.
+
+Token-level LCS rather than character-level: a character diff of `foo(a)` becoming `bar(a)` highlights fragments
+of both names, where word boundaries keep identifiers whole. The cost is quadratic in tokens, which is nothing
+at these sizes, and Myers is not worth the complexity.
+
+**The part that took two attempts was the similarity floor.** Below some amount of shared content the two lines
+are different lines rather than an edit of one, and highlighting those word by word produces a stripe of noise
+that hides the shape of the change. Measuring similarity over all tokens put `alpha(beta, gamma)` and
+`delta(epsilon, zeta)` at 57 per cent — they share brackets, a comma and a semicolon — so a complete rewrite
+came out striped. Counting words only scores that pair at zero, which is the truth. Whitespace-only differences
+are left plain for the same reason: reformatting would otherwise light up the gaps between unchanged tokens.
+
+Verified on a real commit from this repository: one pair highlighted (`Ctrl` becoming `Shift`, plus the appended
+text) and twenty-two lines left plain because they were replacements rather than edits. The emphasis is the
+row's own hue at roughly three times the alpha — a different hue would read as a third kind of change.
+
+## Slash commands: verified before built
+
+The first thing done was not code. A `.claude/commands/hello.md` containing "reply with exactly SLASHWORKS" was
+run through `claude -p`, because autocomplete for something that silently did nothing would be worse than no
+autocomplete at all. It returned `SLASHWORKS`, and later did so again through Flight Deck's own stream.
+
+That check also produced a false negative worth recording: `claude -p "/hello"` at a Git Bash prompt answers
+"what would you like me to do with `E:/muhaz/Git/hello`", because MSYS path-translates any argument beginning
+with a slash. It looked exactly like slash commands not working headless. Flight Deck sends prompts as JSON on
+stdin and is immune, but anyone testing this from bash needs `MSYS_NO_PATHCONV=1`.
+
+Commands are read off disk because there is no headless route that lists them. That means this code encodes the
+CLI's layout conventions, so it is written to fail quietly: a missing directory contributes nothing, and a file
+without frontmatter still becomes a command described by its first line.
+
+**The interaction that matters is Enter.** Enter now sends, so an unguarded Enter would fire `/dep` as a prompt
+instead of completing it to `/deploy`. The menu takes Enter, Tab and the arrows while it is open, and a test
+asserts that guard sits before the send. The menu opens upward because the input is already at the bottom of the
+window, and picking happens on `mousedown` because the textarea's blur would otherwise close the menu before a
+click could land.
