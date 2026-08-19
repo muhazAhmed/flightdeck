@@ -153,6 +153,20 @@ npm run dev
 Open **<http://localhost:5173>**, click **Add project**, and pick any folder that is a git
 repository.
 
+### A pinnable launcher
+
+```bash
+npm run shortcut
+```
+
+Writes a desktop launcher for this checkout — a `.lnk` on Windows (right-click → Pin to Start, or drag it
+to the taskbar), a `.command` on macOS, a `.desktop` entry on Linux. Clicking it starts the dev server,
+waits until the client actually answers, then opens the browser. If it is already running it just opens
+the tab. The console window it opens is the log; closing it stops the server.
+
+Generated, never committed: a shortcut embeds absolute paths, so everyone runs it once for their own
+checkout.
+
 `npm run dev` runs two processes: Vite on `:5173` and Fastify on `:5174`. For a single
 process serving both:
 

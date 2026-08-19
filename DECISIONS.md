@@ -1476,3 +1476,45 @@ The remote list also used to hide branches with a local counterpart, on the grou
 the same thing. True for checkout, false for a fast-forward: after a merged pull request `origin/dev` is
 precisely the ref that is ahead of local `dev`, and it was the one ref that could not be selected. They are shown
 now, labelled with the local branch that tracks them.
+
+## The launcher is generated, and two bugs only showed up when it ran
+
+A pinnable icon that starts the dev server and opens the browser. Three scripts, no dependencies —
+`launch.mjs` runs it, `make-icon.mjs` builds an `.ico`, `make-shortcut.mjs` writes the platform launcher.
+
+**Generated per machine, never committed.** A shortcut embeds the repository path, the node binary and the icon
+path; committing one would be precisely the hardcoded-path problem the portability guard exists to prevent.
+`.gitignore` covers `*.lnk`, `*.command` and `*.desktop`, and a test asserts that.
+
+No dependencies on purpose: a launcher that needs `npm install` to have succeeded is no use on the day the
+install is what broke.
+
+Three behaviours worth having: it opens the tab instead of starting a second server if one is already up, so
+double-clicking the icon twice is harmless; it waits for the client to actually answer before opening the
+browser, because opening it immediately shows a connection error for the second or two Vite takes to bind and
+that reads as "broken"; and closing the window stops the server, which is what people expect of something they
+launched — hence `cmd /k` rather than `/c`, since the console is also the log.
+
+**Vite binds only to `[::1]` on this machine.** The first version polled `http://127.0.0.1:5173` and gave up
+after ninety seconds while the server was running perfectly. Measured rather than guessed: `curl 127.0.0.1`
+returned nothing, `curl localhost` returned 200, and netstat showed a single `[::1]:5173` listener. Polling
+`localhost` lets the resolver pick the family, and it is also the URL Vite itself prints.
+
+**The shortcut looked perfect and did not work.** PowerShell single-quoted strings need no escaping for a double
+quote, so the doubled form produced `node ""path""`. Reading the `.lnk` back with WScript.Shell showed exactly
+that and it looked plausible; running it gave `Cannot find module`. Fixed to one pair.
+
+Worth recording that the *first* attempt to verify this was itself wrong: running the command through Git Bash
+mangles the quoting differently from Explorer, so it failed for a reason the real shortcut would not have had.
+The faithful test was `Start-Process` on the `.lnk`, which is how Windows launches it — and that brought both
+ports up and opened the browser.
+
+**`~/Desktop` was the wrong place.** The desktop here is redirected to `~/OneDrive/Desktop`, which is a common
+Windows setup, so the first shortcut landed in the home directory. Windows knows the answer, so it is asked:
+`[Environment]::GetFolderPath('Desktop')` follows the redirection and handles a localised folder name too, with
+`~/Desktop` kept as a fallback because a shortcut's location is not worth failing over.
+
+The icon is an `.ico` built by concatenation rather than encoding: since Vista an ICO entry may hold PNG bytes
+verbatim, so the three committed logo PNGs are wrapped with a six-byte header and a directory. Nothing is
+re-encoded, which means the icon is exactly the artwork already in the repository, and a test walks the entries
+to check each one really is a PNG inside the file's bounds.

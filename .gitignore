@@ -3,3 +3,9 @@ dist/
 .env
 .env.local
 *.log
+
+# Generated launchers. They embed absolute paths for one machine, so they are never committed —
+# run `npm run shortcut` to make your own.
+*.lnk
+*.command
+*.desktop

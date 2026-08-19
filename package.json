@@ -19,6 +19,9 @@
     "build": "vite build",
     "start": "cross-env NODE_ENV=production tsx server/index.ts",
     "typecheck": "tsc --noEmit",
+    "launch": "node scripts/launch.mjs",
+    "shortcut": "node scripts/make-shortcut.mjs",
+    "icon": "node scripts/make-icon.mjs",
     "test": "tsx --test test/*.test.ts test/*.test.tsx"
   },
   "dependencies": {

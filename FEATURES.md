@@ -98,6 +98,7 @@ What the tool does, grouped by area, each tagged with the phase it lands in.
 | Light theme | **done** | A full light surface stack, measured, plus `color-scheme` so form controls and scrollbars follow. |
 | Accent colours | **done** | Seven, each a contrast-checked fill/bright pair with a light-theme companion. Green, amber and red are labelled where they collide with diff or status meaning. |
 | Interface density | **done** | Comfortable / compact, driven by the type scale. |
+| Pinnable launcher | **done** | `npm run shortcut` writes a desktop launcher for your checkout — `.lnk`, `.command` or `.desktop` depending on the platform, with the Flight Deck icon. Clicking it starts the dev server, waits for the client to answer, then opens the browser; clicking it again just opens the tab. Generated, never committed. |
 | Reopen last project | **done** | Restores the project you had open, once, and only if it still exists. |
 | Confirmation level | **done** | Every action, or only the irreversible ones. Discard and force-delete always ask regardless. |
 | Command palette actions (not just navigation) | Later | "commit", "stash", "new chat" from `Ctrl+K`. |
