@@ -793,3 +793,66 @@ Two tests pin it: the knob must carry a `left` anchor, and the travel must be a 
 than an arbitrary `translate-x-[…]` — an arbitrary number is the shape of a value tuned until it
 looked correct, which is what produced the bug.
 
+---
+
+### 2026-08-18 · Four UX corrections in the sidebar and Changes panel
+
+**The profile row is the button.** A 28px gear in the corner of a 44px row was a needlessly small
+target for the most-used control in the footer. The whole row now opens settings, with the gear kept
+as decoration *inside* the button — a nested button would be invalid markup and would swallow the
+outer click.
+
+**Selection is a fill plus an edge.** `bg-accent-subtle` alone is a 14% tint over a panel of the same
+family, which is hard to spot at a glance; the selected project now also carries a 2px accent bar on
+its left edge. Every row reserves that slot with `border-l-2 border-transparent`, so selecting
+nothing does not shift the layout.
+
+**The avatar is legible.** 36px with an accent fill and white text at 14px, matching the count
+badges, instead of a faint 28px circle with 11.5px accent text.
+
+**Remote actions are labelled buttons, not three arrows.** Fetch, pull and push as icon + word +
+count, in a three-column row. Three unexplained arrows in a corner is a guessing game — up and down
+could equally mean push/pull, expand/collapse, or sort — and "which arrow was push?" is not a
+question a tool should ask someone twice a day. Each carries a sentence in its title explaining what
+it does, and a non-zero count makes the button accent-bordered so "there is something to send" is
+visible without reading.
+
+**Testing note worth keeping:** the render test for selection could not drive the store. Zustand v5
+passes `getInitialState` as its `useSyncExternalStore` server snapshot, so `setState` is ignored
+during `renderToStaticMarkup`. Rather than reshape the component to suit a test, the rendered
+assertion checks the marker slot exists and the branch itself is asserted from source — with the
+reason written next to it, so the next person does not spend the same twenty minutes.
+
+
+---
+
+### 2026-08-18 · Marks and fills are separate tokens
+
+Colouring the count badges by meaning exposed the same trap as the accent did: `--success`,
+`--warn` and `--info` are **marks** — bright, for icons and text on a dark surface — and white on
+bright green is about 2.3:1. Unreadable.
+
+So there are now four `--fill-*` tokens alongside them, dark enough to carry a white label:
+success `#15803D` (5.0:1), warn `#A16207` (4.9:1), info `#6D28D9` (7.1:1), danger `#B91C1C`
+(6.5:1), all holding in both themes. A test asserts badges use a `--fill-*` token and never a mark
+colour, because the failure is silent — the badge still renders, it just cannot be read.
+
+Tones assigned by what is being counted rather than at random: accent for totals and remote
+actions, success for staged (ready), warn for changed (in progress), info for stashes (set aside).
+
+**The badge was also not a circle.** `min-w-5 px-1.5` gives a single digit horizontal padding and no
+matching vertical padding, which is an oval. `size-5` fixes both axes; past 99 it widens into a pill,
+since a circle big enough for three digits would be a blob everywhere else.
+
+---
+
+### 2026-08-18 · Branch and identity sit together, and the gear is gone
+
+The disabled settings gear in the Changes header opened nothing and occupied the corner where a real
+control belongs. Removed — the sidebar footer already reaches settings.
+
+In its place, branch and identity are two buttons in one row above the remote actions, styled exactly
+like Fetch / Pull / Push so the whole header reads as one family instead of one dropdown, one bar and
+three icons. They belong together because they answer the same question — *which context am I
+committing into* — and the identity was previously buried above the commit box, visible only after
+scrolling a long file list.

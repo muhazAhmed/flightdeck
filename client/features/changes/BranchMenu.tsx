@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
-import { Check, Cloud, GitBranch, Plus, Trash2 } from 'lucide-react';
+import { Check, ChevronDown, Cloud, GitBranch, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { BranchList, GitStatus } from '@shared/types';
 import { Button } from '@/shared/ui/Button';
@@ -132,11 +132,17 @@ export function BranchMenu({ projectId, status, revision, onStatus }: BranchMenu
       <DropdownMenu.Root>
         <DropdownMenu.Trigger
           disabled={busy}
-          className="flex min-w-0 items-center gap-1 rounded px-1 py-0.5 text-[12.5px] text-text-secondary hover:bg-surface-2 disabled:opacity-40"
+          title={`Branch: ${current ?? 'detached'}${status?.tracking ? ` (tracking ${status.tracking})` : ' — no upstream'}`}
+          className={cn(
+            'flex h-6 min-w-0 max-w-28 items-center gap-1 rounded-md border px-1.5 text-[11.5px]',
+            'transition-colors duration-(--duration-fast)',
+            'border-border-subtle bg-surface-2 text-text-secondary hover:bg-surface-3 hover:text-text-primary',
+            'disabled:pointer-events-none disabled:opacity-40'
+          )}
         >
-          <GitBranch size={12} className="shrink-0" />
-          <span className="truncate font-mono">{current ?? 'detached'}</span>
-          {status?.tracking ? null : <span className="shrink-0 text-text-muted">(local)</span>}
+          <GitBranch size={11} className="shrink-0 text-accent-bright" />
+          <span className="min-w-0 flex-1 truncate text-left font-mono">{current ?? 'detached'}</span>
+          <ChevronDown size={10} className="shrink-0 text-text-muted" />
         </DropdownMenu.Trigger>
 
         <DropdownMenu.Portal>

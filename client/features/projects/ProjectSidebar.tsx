@@ -169,9 +169,11 @@ export function ProjectSidebar({
               <div key={project.id} className="mb-0.5">
                 <div
                   className={cn(
-                    'group flex items-center gap-2 rounded-md px-2 py-1.5',
+                    'group flex items-center gap-2 rounded-md border-l-2 px-2 py-1.5',
                     'transition-colors duration-(--duration-fast)',
-                    isSelected ? 'bg-accent-subtle' : 'hover:bg-surface-2'
+                    isSelected
+                      ? 'border-accent-bright bg-accent-subtle text-text-primary'
+                      : 'border-transparent hover:bg-surface-2'
                   )}
                 >
                   <button
@@ -320,6 +322,14 @@ function ChatRow({
  * The settings button is deliberately inert for now: a visible, disabled affordance is honest
  * about what exists, where a button that opens an empty page is not.
  */
+/**
+ * Who is using the app, and the way into settings.
+ *
+ * The whole row is the button, not just the gear: a 28px icon in the corner of a 44px row is a
+ * needlessly small target for the most-used control down here. A gear still shows on the right so
+ * the row's purpose is obvious, but it is decoration inside the button rather than a nested one —
+ * a button inside a button is invalid markup and swallows the outer click.
+ */
 function SidebarFooter({ onOpenSettings }: { onOpenSettings: () => void }) {
   const [user, setUser] = useState<UserInfo | null>(null);
 
@@ -338,15 +348,32 @@ function SidebarFooter({ onOpenSettings }: { onOpenSettings: () => void }) {
     .toUpperCase();
 
   return (
-    <footer className="flex items-center gap-2 border-t border-border-subtle px-3 py-2.5">
-      <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-accent-subtle text-[11.5px] font-semibold text-accent-bright">
-        {initials}
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block truncate text-[13px]">{user?.name ?? 'No git identity'}</span>
-        <span className="block truncate text-[11.5px] text-text-muted">{user?.email ?? 'set user.email in git'}</span>
-      </span>
-      <IconButton label="Settings (Ctrl+,)" icon={<Settings size={14} />} onClick={onOpenSettings} />
+    <footer className="border-t border-border-subtle p-2">
+      <button
+        onClick={onOpenSettings}
+        title="Settings (Ctrl+,)"
+        className={cn(
+          'group flex w-full items-center gap-2.5 rounded-md px-2 py-2 text-left',
+          'transition-colors duration-(--duration-fast) hover:bg-surface-2'
+        )}
+      >
+        {/* Accent fill with white text: the same treatment as a count badge, so an avatar reads as
+            an identity rather than a faint circle. */}
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-accent text-[14px] font-semibold text-(--accent-fg)">
+          {initials}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-[13.5px] font-medium">{user?.name ?? 'No git identity'}</span>
+          <span className="block truncate text-[12px] text-text-muted">
+            {user?.email ?? 'set user.email in git'}
+          </span>
+        </span>
+        <Settings
+          size={15}
+          className="shrink-0 text-text-muted transition-colors duration-(--duration-fast) group-hover:text-text-primary"
+        />
+      </button>
     </footer>
   );
 }
+

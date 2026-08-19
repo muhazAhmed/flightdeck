@@ -35,6 +35,10 @@
   --color-danger: var(--danger);
   --color-warn: var(--warn);
   --color-info: var(--info);
+  --color-fill-success: var(--fill-success);
+  --color-fill-warn: var(--fill-warn);
+  --color-fill-info: var(--fill-info);
+  --color-fill-danger: var(--fill-danger);
   --font-sans: var(--font-ui);
   --font-mono: var(--font-mono);
 }
@@ -103,4 +107,10 @@
 * {
   scrollbar-width: thin;
   scrollbar-color: var(--border) transparent;
+}
+
+button {
+  cursor: pointer;
+} button:disabled {
+  cursor: not-allowed;
 }

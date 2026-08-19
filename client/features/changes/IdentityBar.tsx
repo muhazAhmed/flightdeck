@@ -74,89 +74,87 @@ export function IdentityBar({ projectId }: IdentityBarProps) {
 
   return (
     <>
-      <div className="flex items-center gap-1.5 border-b border-border-subtle px-2 py-1">
-        {unset ? (
-          <TriangleAlert size={12} className="shrink-0 text-warn" />
-        ) : (
-          <CircleUser size={12} className={cn('shrink-0', isGlobal ? 'text-text-muted' : 'text-accent-bright')} />
-        )}
+      <DropdownMenu.Root>
+        <DropdownMenu.Trigger
+          disabled={busy}
+          title={
+            unset
+              ? 'No git identity set for this repository'
+              : `Committing as ${current?.name} <${current?.email}>${isGlobal ? ' (machine default)' : ' (set for this repository)'}`
+          }
+          className={cn(
+            'flex h-6 min-w-0 max-w-28 items-center gap-1 rounded-md border px-1.5 text-[11.5px]',
+            'transition-colors duration-(--duration-fast)',
+            'disabled:pointer-events-none disabled:opacity-40',
+            unset
+              ? 'border-warn bg-surface-2 text-warn hover:bg-surface-3'
+              : 'border-border-subtle bg-surface-2 text-text-secondary hover:bg-surface-3 hover:text-text-primary'
+          )}
+        >
+          {unset ? (
+            <TriangleAlert size={11} className="shrink-0" />
+          ) : (
+            <CircleUser size={11} className={cn('shrink-0', isGlobal ? 'text-text-muted' : 'text-accent-bright')} />
+          )}
+          <span className="min-w-0 flex-1 truncate text-left">{unset ? 'No identity' : current?.name}</span>
+          <ChevronDown size={10} className="shrink-0 text-text-muted" />
+        </DropdownMenu.Trigger>
 
-        <DropdownMenu.Root>
-          <DropdownMenu.Trigger
-            disabled={busy}
-            className="flex min-w-0 flex-1 items-center gap-1 rounded px-1 py-0.5 text-left hover:bg-surface-2 disabled:opacity-40"
+        <DropdownMenu.Portal>
+          <DropdownMenu.Content
+            align="start"
+            sideOffset={4}
+            className="z-50 w-72 rounded-md border border-border-default bg-surface-2 p-1 shadow-(--shadow-popover)"
           >
-            <span className="min-w-0 flex-1 truncate text-[12.5px]">
-              {unset ? (
-                <span className="text-warn">No git identity set</span>
-              ) : (
-                <>
-                  <span className="text-text-secondary">{current?.name}</span>
-                  <span className="text-text-muted"> · {current?.email}</span>
-                </>
-              )}
-            </span>
-            {isGlobal ? <span className="shrink-0 text-[12.5px] text-text-muted">global</span> : null}
-            <ChevronDown size={11} className="shrink-0 text-text-muted" />
-          </DropdownMenu.Trigger>
+            <DropdownMenu.Label className="px-2 py-1 text-[12px] leading-4 text-text-muted">
+              Commit as — written to this repository only
+              {isGlobal ? <span className="block text-warn">Currently using the machine default</span> : null}
+            </DropdownMenu.Label>
 
-          <DropdownMenu.Portal>
-            <DropdownMenu.Content
-              align="start"
-              sideOffset={4}
-              className="z-50 w-72 rounded-md border border-border-default bg-surface-2 p-1 shadow-(--shadow-popover)"
+            {(identity?.saved ?? []).length === 0 ? (
+              <p className="px-2 py-1.5 text-[12.5px] text-text-muted">No saved identities yet.</p>
+            ) : (
+              (identity?.saved ?? []).map((saved) => {
+                const active = saved.name === current?.name && saved.email === current?.email;
+                return (
+                  <div key={saved.id} className="group flex items-center gap-1 rounded px-1 hover:bg-surface-3">
+                    <DropdownMenu.Item
+                      disabled={busy}
+                      onSelect={() => void apply(saved.name, saved.email, false)}
+                      className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 px-1 py-1.5 outline-none"
+                    >
+                      <Check size={12} className={cn('shrink-0', active ? 'text-accent-bright' : 'opacity-0')} />
+                      <span className="min-w-0 flex-1 truncate">
+                        <span className="text-[13px] text-text-primary">{saved.label}</span>
+                        <span className="text-[12px] text-text-muted"> · {saved.email}</span>
+                      </span>
+                    </DropdownMenu.Item>
+                    <IconButton
+                      label={`Forget ${saved.label}`}
+                      tone="danger"
+                      revealOnGroupHover
+                      icon={<X size={11} />}
+                      onClick={(event) => {
+                        event.preventDefault();
+                        void forget(saved);
+                      }}
+                    />
+                  </div>
+                );
+              })
+            )}
+
+            <DropdownMenu.Separator className="my-1 h-px bg-border-subtle" />
+            <DropdownMenu.Item
+              onSelect={() => setAdding(true)}
+              className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-[13px] outline-none hover:bg-surface-3"
             >
-              <DropdownMenu.Label className="px-2 py-1 text-[12.5px] text-text-muted">
-                Commit as — written to this repository only
-              </DropdownMenu.Label>
-
-              {(identity?.saved ?? []).length === 0 ? (
-                <p className="px-2 py-1.5 text-[12.5px] text-text-muted">
-                  No saved identities yet.
-                </p>
-              ) : (
-                (identity?.saved ?? []).map((saved) => {
-                  const active = saved.name === current?.name && saved.email === current?.email;
-                  return (
-                    <div key={saved.id} className="group flex items-center gap-1 rounded px-1 hover:bg-surface-3">
-                      <DropdownMenu.Item
-                        disabled={busy}
-                        onSelect={() => void apply(saved.name, saved.email, false)}
-                        className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 px-1 py-1.5 outline-none"
-                      >
-                        <Check size={12} className={cn('shrink-0', active ? 'text-accent-bright' : 'opacity-0')} />
-                        <span className="min-w-0 flex-1 truncate">
-                          <span className="text-text-primary">{saved.label}</span>
-                          <span className="text-[12.5px] text-text-muted"> · {saved.email}</span>
-                        </span>
-                      </DropdownMenu.Item>
-                      <IconButton
-                        label={`Forget ${saved.label}`}
-                        tone="danger"
-                        revealOnGroupHover
-                        icon={<X size={11} />}
-                        onClick={(event) => {
-                          event.preventDefault();
-                          void forget(saved);
-                        }}
-                      />
-                    </div>
-                  );
-                })
-              )}
-
-              <DropdownMenu.Separator className="my-1 h-px bg-border-subtle" />
-              <DropdownMenu.Item
-                onSelect={() => setAdding(true)}
-                className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 outline-none hover:bg-surface-3"
-              >
-                <Plus size={12} className="text-text-muted" />
-                Add an identity…
-              </DropdownMenu.Item>
-            </DropdownMenu.Content>
-          </DropdownMenu.Portal>
-        </DropdownMenu.Root>
-      </div>
+              <Plus size={12} className="text-text-muted" />
+              Add an identity…
+            </DropdownMenu.Item>
+          </DropdownMenu.Content>
+        </DropdownMenu.Portal>
+      </DropdownMenu.Root>
 
       <AddIdentityDialog
         open={adding}

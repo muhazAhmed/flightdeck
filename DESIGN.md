@@ -1,6 +1,7 @@
 # Flight Deck — design system
 
-Dark only. Cyan accent. Built to be stared at for eight hours without irritating you.
+Dark by default with a full light theme, cyan by default with seven accents. Built to be stared at
+for eight hours without irritating you.
 
 Companion to [SPEC.md](./SPEC.md), which owns architecture and scope.
 
@@ -25,8 +26,9 @@ Companion to [SPEC.md](./SPEC.md), which owns architecture and scope.
 
 ## Color tokens
 
-Dark only, but every value is a CSS variable, so a light theme later is a token swap
-rather than a refactor. Define once on `:root`; Tailwind v4 picks them up via `@theme`.
+The dark values below are the defaults, defined once on `:root` in `tokens.css` and exposed to
+Tailwind via `@theme`. `themes.css` overrides a subset of them per `[data-theme]`, `[data-accent]`
+and `[data-density]` — which is why a theme change is one attribute write rather than a re-render.
 
 ### Surfaces and text
 
@@ -66,10 +68,18 @@ label on top of it: white on `#0E7490` is 5.4:1, where white on the old `#06B6D4
 failed outright. A *mark on a dark surface* — icon, link, focus ring — needs the opposite, which is
 what `--accent-bright` is for. Using one value for both is what produced unreadable buttons.
 
-**Counts are accent-filled with a white label.** Earlier attempts used a surface step
-(`--surface-3` on `--surface-2`) which is a 1.1:1 difference and read as no background at all. A
-zero count is the exception: it gets a bordered neutral chip, because a filled badge is a call to
-attention and a zero has nothing to attend to.
+**Counts are filled with a white label.** Earlier attempts used a surface step (`--surface-3` on
+`--surface-2`) which is a 1.1:1 difference and read as no background at all.
+
+**Colour carries meaning, so the fills differ by what is being counted:** accent for totals and
+remote actions, `--fill-success` for staged (work that is ready), `--fill-warn` for changed (work in
+progress), `--fill-info` for stashes (set aside). Those are separate tokens from `--success` /
+`--warn` / `--info`, which are *marks* — white on the bright green is about 2.3:1 and unreadable,
+while white on the fills clears 4.9:1 or better in both themes.
+
+**One or two digits are a circle** (`size-5` fixes both axes); three or more widen into a pill.
+Horizontal padding on a single digit is what produces an oval. A zero count stays a bordered neutral
+chip, because a filled badge is a call to attention and a zero has nothing to attend to.
 
 ### Semantic — never used decoratively
 
@@ -91,11 +101,11 @@ left border only. Info must never look like a call to action.
 | `--diff-add-gutter` | `#22C55E` | `+` marker, gutter bar |
 | `--diff-del-bg` | `rgb(239 68 68 / 0.16)` | removed line background |
 | `--diff-del-gutter` | `#EF4444` | `-` marker, gutter bar |
-
-Tints are stronger and gutters brighter than the first pass: a lifted background needs more of
-both before a diff row reads as one.
 | `--diff-word-add` | `rgb(34 197 94 / 0.28)` | intra-line word highlight |
 | `--diff-word-del` | `rgb(239 68 68 / 0.28)` | intra-line word highlight |
+
+Tints are stronger and gutters brighter than the first pass: a lifted background needs more of both
+before a diff row reads as one.
 
 The diff viewer is ours (`features/changes/DiffView.tsx`) and reads these tokens directly,
 which is part of why Monaco was dropped — an embedded editor arrives with its own theme

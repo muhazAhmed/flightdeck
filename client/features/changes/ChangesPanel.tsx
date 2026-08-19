@@ -9,7 +9,6 @@ import {
   Minus,
   Plus,
   RefreshCw,
-  Settings,
   Sparkles,
   Undo2
 } from 'lucide-react';
@@ -217,51 +216,68 @@ export function ChangesPanel({ project, revision, confirmLevel }: ChangesPanelPr
   return (
     <aside className="flex h-full min-h-0 flex-col bg-surface-1">
       <header className="shrink-0 border-b border-border-subtle px-4 pt-3 pb-2">
+        {/* Branch and identity are context, not actions: small chips in the title row's corner,
+            leaving the full-width row below for the things you actually press. */}
         <div className="flex items-center gap-2">
           <span className="text-[14.5px] font-semibold tracking-tight">Changes</span>
-          {hasChanges ? (
-            <CountBadge value={staged.length + changed.length} />
-          ) : null}
+          {hasChanges ? <CountBadge value={staged.length + changed.length} /> : null}
 
-          <span className="ml-auto flex items-center gap-0.5">
-            <IconButton
-              label="Fetch from remote"
-              disabled={git.busy}
-              onClick={() => void git.remote('fetch')}
-              icon={<RefreshCw size={13} className={cn(git.loading && 'animate-spin')} />}
+          <span className="ml-auto flex min-w-0 items-center gap-1">
+            <BranchMenu
+              projectId={project.id}
+              status={status}
+              revision={revision + git.mutations}
+              onStatus={git.adoptStatus}
             />
-            <RemoteButton
-              label="Pull"
-              count={status?.behind ?? 0}
-              disabled={git.busy || !status?.tracking}
-              onClick={askPull}
-              icon={<ArrowDownToLine size={13} />}
-            />
-            <RemoteButton
-              label="Push"
-              count={status?.ahead ?? 0}
-              disabled={git.busy || !status?.branch}
-              onClick={askPush}
-              icon={<ArrowUpFromLine size={13} />}
-            />
-            <IconButton label="Git settings — not built yet" icon={<Settings size={13} />} disabled />
+            <IdentityBar projectId={project.id} />
           </span>
         </div>
 
-        <div className="mt-2">
-          <BranchMenu
-            projectId={project.id}
-            status={status}
-            revision={revision + git.mutations}
-            onStatus={git.adoptStatus}
+        {/*
+          Labelled buttons, not bare icons. Three arrows in a row is a guessing game — up and down
+          could mean push/pull, expand/collapse, or sort, and "which arrow was push?" is not a
+          question a tool should ask twice a day. The counts sit inside the label so the button also
+          answers "is there anything to send?" without a tooltip.
+        */}
+        <div className="mt-2.5 grid grid-cols-3 gap-1.5">
+          <RemoteButton
+            label="Fetch"
+            hint="Check the remote for new commits without changing your files"
+            icon={<RefreshCw size={13} className={cn(git.loading && 'animate-spin')} />}
+            disabled={git.busy}
+            onClick={() => void git.remote('fetch')}
+          />
+          <RemoteButton
+            label="Pull"
+            count={status?.behind ?? 0}
+            hint={
+              status?.tracking
+                ? 'Bring down commits from the upstream branch (fast-forward only)'
+                : 'This branch has no upstream to pull from'
+            }
+            icon={<ArrowDownToLine size={13} />}
+            disabled={git.busy || !status?.tracking}
+            onClick={askPull}
+          />
+          <RemoteButton
+            label="Push"
+            count={status?.ahead ?? 0}
+            hint={
+              status?.tracking
+                ? 'Send your local commits to the upstream branch. Never forced'
+                : 'Publish this branch and set its upstream'
+            }
+            icon={<ArrowUpFromLine size={13} />}
+            disabled={git.busy || !status?.branch}
+            onClick={askPush}
           />
         </div>
 
         <div className="mt-2.5 flex gap-1 rounded-lg border border-border-subtle bg-(--bg-base) p-1">
-          <TabButton active={tab === 'unstaged'} count={changed.length} onClick={() => setTab('unstaged')}>
+          <TabButton active={tab === 'unstaged'} count={changed.length} tone="changed" onClick={() => setTab('unstaged')}>
             Unstaged
           </TabButton>
-          <TabButton active={tab === 'staged'} count={staged.length} onClick={() => setTab('staged')}>
+          <TabButton active={tab === 'staged'} count={staged.length} tone="staged" onClick={() => setTab('staged')}>
             Staged
           </TabButton>
         </div>
@@ -363,7 +379,7 @@ export function ChangesPanel({ project, revision, confirmLevel }: ChangesPanelPr
           <div className="border-t border-border-subtle px-2 py-2">
             <p className="flex items-center gap-1.5 px-2 py-1 text-[12px] text-text-muted">
               Stashes
-              <CountBadge value={git.stashes.length} />
+              <CountBadge value={git.stashes.length} tone="stash" />
             </p>
             {git.stashes.map((entry) => (
               <div key={entry.ref} className="group flex items-center gap-2 rounded-md px-2 py-1 hover:bg-surface-2">
@@ -404,7 +420,6 @@ export function ChangesPanel({ project, revision, confirmLevel }: ChangesPanelPr
         <p className="px-3 pt-2.5 pb-1.5 text-[12px] font-medium tracking-wide text-text-muted uppercase">
           Commit
         </p>
-        <IdentityBar projectId={project.id} />
         <div className="p-3">
           <div className="relative mb-2.5">
           <textarea
@@ -471,11 +486,13 @@ export function ChangesPanel({ project, revision, confirmLevel }: ChangesPanelPr
 function TabButton({
   active,
   count,
+  tone,
   onClick,
   children
 }: {
   active: boolean;
   count: number;
+  tone: BadgeTone;
   onClick: () => void;
   children: ReactNode;
 }) {
@@ -493,7 +510,7 @@ function TabButton({
       )}
     >
       {children}
-      <CountBadge value={count} />
+      <CountBadge value={count} tone={tone} />
     </button>
   );
 }
@@ -513,7 +530,7 @@ function FileList({ files, selected, staged, onSelect, groupActions, rowActions 
       <div className="flex items-center gap-1 px-2 pb-1">
         <p className="flex items-center gap-1.5 text-[12px] text-text-muted">
           {staged ? 'Staged files' : 'Changed files'}
-          <CountBadge value={files.length} />
+          <CountBadge value={files.length} tone={staged ? 'staged' : 'changed'} />
         </p>
         <div className="ml-auto flex items-center gap-0.5">{groupActions}</div>
       </div>
@@ -555,50 +572,82 @@ function FileList({ files, selected, staged, onSelect, groupActions, rowActions 
 }
 
 /**
- * Fetch / pull / push, each showing how many commits are involved. The count is the point:
- * pushing is safe to offer precisely because you can see what you are about to send.
+ * One remote action: icon, word, and how many commits it involves.
+ *
+ * The count is not decoration — pushing is safe to offer precisely because you can see what you are
+ * about to send before you press it. The `title` carries the longer explanation so a first-time user
+ * can find out what fetch does without leaving the app.
  */
 function RemoteButton({
   label,
-  count,
+  hint,
+  count = 0,
   disabled,
   onClick,
   icon
 }: {
   label: string;
-  count: number;
+  hint: string;
+  count?: number;
   disabled: boolean;
   onClick: () => void;
   icon: ReactNode;
 }) {
   return (
-    <div className="flex items-center">
-      <IconButton
-        label={count > 0 ? `${label} (${count} commit${count === 1 ? '' : 's'})` : label}
-        tone="accent"
-        disabled={disabled}
-        onClick={onClick}
-        icon={icon}
-      />
-      {count > 0 ? <span className="tabular -ml-1 text-[11px] text-accent-bright">{count}</span> : null}
-    </div>
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      title={count > 0 ? `${hint} (${count} commit${count === 1 ? '' : 's'})` : hint}
+      className={cn(
+        'flex items-center justify-center gap-1.5 rounded-md border px-2 py-1.5 text-[12.5px]',
+        'transition-colors duration-(--duration-fast)',
+        'disabled:pointer-events-none disabled:opacity-40',
+        count > 0
+          ? 'border-accent bg-accent-subtle font-medium text-text-primary hover:bg-surface-3'
+          : 'border-border-subtle bg-surface-2 text-text-secondary hover:bg-surface-3 hover:text-text-primary'
+      )}
+    >
+      <span className={cn('shrink-0', count > 0 && 'text-accent-bright')}>{icon}</span>
+      {label}
+      {count > 0 ? <CountBadge value={count} tone="accent" /> : null}
+    </button>
   );
 }
 
+/** What a count is about, so the colour carries meaning instead of decorating. */
+type BadgeTone = 'accent' | 'staged' | 'changed' | 'stash';
+
+const BADGE_TONE: Record<BadgeTone, string> = {
+  accent: 'bg-accent',
+  // Staged is work that is ready; changed is work still in progress; a stash is set aside. Each gets
+  // a fill that already means that elsewhere in the app, rather than a second shade of the accent.
+  staged: 'bg-fill-success',
+  changed: 'bg-fill-warn',
+  stash: 'bg-fill-info'
+};
+
 /**
- * A count. Filled with the accent and labelled in white, because the earlier surface-on-surface
- * chips were a 1.1:1 difference and simply did not read as a background at all.
+ * A count.
  *
- * Zero is the exception: a filled badge is a call to attention, and there is nothing to attend to.
+ * Filled and white-labelled because surface-on-surface chips were a 1.1:1 difference and read as no
+ * background at all. All four fills carry white above 4.9:1 in both themes.
+ *
+ * ONE OR TWO DIGITS ARE A CIRCLE, not a padded pill: `size-5` fixes both axes so a single digit is
+ * round rather than an oval, which is what horizontal padding produces. Three digits or more widen
+ * into a pill, because a circle that fits "100" would be a large blob everywhere else.
+ *
+ * Zero is the exception: a filled badge is a call to attention and zero has nothing to attend to.
  */
-function CountBadge({ value }: { value: number }) {
+function CountBadge({ value, tone = 'accent' }: { value: number; tone?: BadgeTone }) {
+  const wide = value > 99;
   return (
     <span
       className={cn(
-        'tabular inline-flex min-w-5 items-center justify-center rounded-full px-1.5 py-0.5 text-[11px] font-semibold',
+        'tabular inline-flex shrink-0 items-center justify-center rounded-full text-[11px] leading-none font-semibold',
+        wide ? 'h-5 px-1.5' : 'size-5',
         value === 0
           ? 'border border-border-subtle bg-surface-3 text-text-muted'
-          : 'bg-accent text-(--accent-fg)'
+          : cn(BADGE_TONE[tone], 'text-white')
       )}
     >
       {value}

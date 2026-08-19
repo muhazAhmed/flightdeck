@@ -37,10 +37,21 @@
   --accent-fg: #ffffff;
   --accent-subtle: rgb(34 211 238 / 0.14);
 
+  /* MARKS: bright, for text and icons on a dark surface. */
   --success: #22c55e;
   --danger: #ef4444;
   --warn: #f59e0b;
   --info: #a78bfa;
+
+  /*
+   * FILLS: dark enough to carry a white label, for badges and filled chips. Same split as the
+   * accent — a colour bright enough to read as an icon cannot also sit behind white text. Each was
+   * measured: white clears 4.9:1 or better on all four, in both themes.
+   */
+  --fill-success: #15803d;
+  --fill-warn: #a16207;
+  --fill-info: #6d28d9;
+  --fill-danger: #b91c1c;
 
   /* Slightly stronger than before: a lifted background needs more tint to read as a diff. */
   --diff-add-bg: rgb(34 197 94 / 0.16);
