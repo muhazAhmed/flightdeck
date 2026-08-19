@@ -158,6 +158,8 @@ export interface Settings {
   commitSignoff: boolean;
   /** Model that drafts commit messages. Empty means the CLI default. */
   draftModel: string;
+  /** Ask git whether this install is behind its remote. The only reason anything is fetched on startup. */
+  checkForUpdates: boolean;
   /** Set by the client as projects are selected; the seed for `restoreLastProject`. */
   lastProjectId: string | null;
 }
@@ -176,8 +178,52 @@ export const DEFAULT_SETTINGS: Settings = {
   maxTurns: 0,
   commitSignoff: false,
   draftModel: '',
+  checkForUpdates: true,
   lastProjectId: null
 };
+
+// ─── Updates ─────────────────────────────────────────────────────────────
+
+/**
+ * Where this install stands against its own remote.
+ *
+ * Deliberately expressed against `origin`, not against a hardcoded upstream: a fork compares with the
+ * fork, which is what its owner actually pushes to and pulls from.
+ */
+export type UpdateState =
+  | 'up-to-date'
+  | 'behind'
+  | 'ahead'
+  | 'diverged'
+  | 'no-upstream'
+  | 'not-a-repo'
+  | 'error';
+
+export interface UpdateCommit {
+  sha: string;
+  subject: string;
+  at: string;
+  author: string;
+}
+
+export interface UpdateStatus {
+  state: UpdateState;
+  /** Branch the install is on, or null when detached or not a repository. */
+  branch: string | null;
+  /** Tracking ref, e.g. `origin/main`. */
+  upstream: string | null;
+  /** Commits on the remote that this install does not have. Newest first, capped. */
+  incoming: UpdateCommit[];
+  behind: number;
+  ahead: number;
+  installed: UpdateCommit | null;
+  /** When the remote was last contacted, from the fetch head's mtime. Null if never. */
+  lastFetchedAt: string | null;
+  /** True when a working tree change would block a fast-forward. */
+  dirty: boolean;
+  /** git's own words when something could not be read. */
+  detail: string | null;
+}
 
 // ─── Usage (per-project cost and quota) ──────────────────────────────────
 

@@ -6,6 +6,7 @@ import {
   Info,
   Keyboard,
   Lightbulb,
+  CloudDownload,
   Lock,
   RotateCcw,
   Settings as SettingsIcon,
@@ -25,6 +26,7 @@ import { GitSection } from './sections/GitSection';
 import { PrivacySection } from './sections/PrivacySection';
 import { ShortcutsSection } from './sections/ShortcutsSection';
 import { TerminalSection } from './sections/TerminalSection';
+import { UpdatesSection } from './sections/UpdatesSection';
 
 interface SettingsPageProps {
   settings: Settings;
@@ -33,7 +35,7 @@ interface SettingsPageProps {
   onClose: () => void;
 }
 
-type SectionId = 'general' | 'git' | 'agent' | 'terminal' | 'shortcuts' | 'privacy';
+type SectionId = 'general' | 'git' | 'agent' | 'terminal' | 'shortcuts' | 'updates' | 'privacy';
 
 interface Section {
   id: SectionId;
@@ -49,6 +51,7 @@ const SECTIONS: Section[] = [
   { id: 'agent', label: 'AI Assistant', icon: <Sparkles size={14} />, blurb: 'Defaults for new chats and projects, and the limits on a run.' },
   { id: 'terminal', label: 'Terminal', icon: <SquareTerminal size={14} />, blurb: 'Which shell opens, and how it looks.' },
   { id: 'shortcuts', label: 'Shortcuts', icon: <Keyboard size={14} />, blurb: 'Every key this app listens for.' },
+  { id: 'updates', label: 'Updates', icon: <CloudDownload size={14} />, blurb: 'Whether this copy is behind the repository it came from.' },
   { id: 'privacy', label: 'Privacy', icon: <Lock size={14} />, blurb: 'What is on disk, and what leaves this machine.' }
 ];
 
@@ -99,6 +102,7 @@ export function SettingsPage({ settings, onUpdate, onReset, onClose }: SettingsP
             {section === 'agent' ? <AgentSection settings={settings} onUpdate={onUpdate} /> : null}
             {section === 'terminal' ? <TerminalSection settings={settings} onUpdate={onUpdate} /> : null}
             {section === 'shortcuts' ? <ShortcutsSection /> : null}
+            {section === 'updates' ? <UpdatesSection settings={settings} onUpdate={onUpdate} /> : null}
             {section === 'privacy' ? <PrivacySection onConfirm={setConfirm} /> : null}
           </div>
 

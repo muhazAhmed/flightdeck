@@ -107,6 +107,9 @@ export async function settingsRoutes(app: FastifyInstance): Promise<void> {
     if (patch.commitSignoff !== undefined && typeof patch.commitSignoff !== 'boolean') {
       return badRequest(reply, 'commitSignoff must be true or false.');
     }
+    if (patch.checkForUpdates !== undefined && typeof patch.checkForUpdates !== 'boolean') {
+      return badRequest(reply, 'checkForUpdates must be true or false.');
+    }
     // A stale last-project id is harmless — the client ignores one that no longer exists — so it is
     // accepted without checking the project still exists.
     if (patch.lastProjectId !== undefined && patch.lastProjectId !== null && typeof patch.lastProjectId !== 'string') {

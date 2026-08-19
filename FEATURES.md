@@ -91,6 +91,7 @@ What the tool does, grouped by area, each tagged with the phase it lands in.
 | Empty / loading / disconnected states | P1 | Skeletons, not full-page spinners. Server-down is a persistent banner with retry. |
 | Concurrent-chat warning | P1 | Two chats in one project share one working tree — the UI says so instead of pretending otherwise. |
 | Elapsed time on long tool cards | **done** | A slow `npm ci` reads as working, not hung. |
+| Update notifications | **done** | Tells you when your clone or fork is behind its own remote: a toast once per launch with a View action, and an Updates section listing the incoming commits with a one-click fast-forward. Asks git, not a web API, so a fork compares against the fork and no token is involved. Refuses on a dirty tree or a diverged fork rather than merging. Can be turned off. |
 | Settings page | **done** | Six sections, all real: General (appearance, confirmations, startup), Git & Commit (sign-off, drafting model), AI Assistant (default model, permission mode for new projects, turn cap), Terminal (profile, font size, cursor), Shortcuts (reference), Privacy (what is on disk, with paths and a purge). Nothing is a disabled placeholder any more. |
 | Light theme | **done** | A full light surface stack, measured, plus `color-scheme` so form controls and scrollbars follow. |
 | Accent colours | **done** | Seven, each a contrast-checked fill/bright pair with a light-theme companion. Green, amber and red are labelled where they collide with diff or status meaning. |

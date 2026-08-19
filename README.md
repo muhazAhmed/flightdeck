@@ -121,6 +121,7 @@ twenty repos have uncommitted work?" costs twenty windows to answer. Here it is 
 - Dark and light themes, seven contrast-checked accents, two densities
 - A settings page where every switch does something — agent defaults and a turn cap, commit sign-off, terminal profile and type size, and a Privacy section that names the files on disk
 - **Never "something went wrong"** — every failure carries the real `git` or `claude` stderr with a copy button
+- **Update notifications** — tells you when your clone or fork is behind its own remote, lists what is coming, and fast-forwards in one click (never merges over your own commits)
 
 ## Requirements
 
@@ -325,6 +326,7 @@ Changes panel shows the combined result. A warning in the UI for this is still o
 | [FEATURES.md](./FEATURES.md) | every feature, phase-tagged, plus what is deliberately excluded |
 | [DESIGN.md](./DESIGN.md) | design tokens, typography, layout, motion, message channels |
 | [API.md](./API.md) | the CLI stream schema (captured from a real run) and every route |
+| [CONTRIBUTING.md](./CONTRIBUTING.md) | branching, commits, PR expectations, what will be turned down |
 | [CLAUDE.md](./CLAUDE.md) | conventions and hard rules for working on this codebase |
 | [DECISIONS.md](./DECISIONS.md) | why things are the way they are, and what would change each one |
 
@@ -332,8 +334,9 @@ Changes panel shows the combined result. A warning in the UI for this is still o
 
 Issues and pull requests are welcome. Before opening a PR:
 
-1. Read [CLAUDE.md](./CLAUDE.md) — the hard rules are short and non-negotiable, and
-   [DECISIONS.md](./DECISIONS.md) probably explains why something odd is the way it is.
+1. Read [CONTRIBUTING.md](./CONTRIBUTING.md) — branching, commit format, and what a PR has to prove. The
+   hard rules in [CLAUDE.md](./CLAUDE.md) are short and non-negotiable, and [DECISIONS.md](./DECISIONS.md)
+   probably explains why something odd is the way it is.
 2. Run `npm run typecheck` and `npm test`.
 3. If you touched the agent stream or git, say in the PR **what you ran it against** — a real
    run, a throwaway repo. "Tests pass" is not enough here, for the reasons above.

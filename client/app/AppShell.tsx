@@ -16,6 +16,7 @@ import { useProjects } from '@/features/projects/useProjects';
 import { SettingsPage } from '@/features/settings/SettingsPage';
 import { useSettings } from '@/features/settings/useSettings';
 import { useDebouncedCallback } from '@/hooks/useDebouncedCallback';
+import { useUpdateCheck } from '@/features/updates/useUpdateCheck';
 import { useHotkey } from '@/hooks/useHotkey';
 import { detailOf, messageOf } from '@/lib/http';
 import { useWorkspace } from '@/store/workspace';
@@ -53,6 +54,10 @@ export function AppShell() {
   const toggleTerminal = useWorkspace((s) => s.toggleTerminal);
   const setTerminalOpen = useWorkspace((s) => s.setTerminalOpen);
   const { settings, loaded: settingsLoaded, update: updateSettings, reset: resetSettings } = useSettings();
+
+  // Announces an available update once per launch. The toast's action opens the Updates section, which is
+  // where the incoming commits and the button live.
+  useUpdateCheck(settingsLoaded && settings.checkForUpdates, () => setView('settings'));
 
   const project = projects.find((p) => p.id === selectedProjectId) ?? null;
   const chat = chats.find((c) => c.id === selectedChatId) ?? null;

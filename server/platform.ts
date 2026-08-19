@@ -9,6 +9,7 @@
  */
 import { homedir, platform } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 export const isWindows = platform() === 'win32';
 
@@ -19,6 +20,17 @@ export function stateDir(): string {
 
 export function statePath(): string {
   return join(stateDir(), 'state.json');
+}
+
+/**
+ * Flight Deck's own directory — the clone or fork this copy is running from.
+ *
+ * Derived from this module's location rather than `process.cwd()`, which is wherever the user happened to
+ * start the server. Used only to ask git whether the install is behind its own remote; if someone runs a
+ * copy that is not a git repository, that check reports "not a repository" instead of failing.
+ */
+export function appRoot(): string {
+  return fileURLToPath(new URL('..', import.meta.url));
 }
 
 /**

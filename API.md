@@ -232,6 +232,38 @@ Verified by terminating two sockets without a close handshake and confirming bot
 Reconnecting starts a **fresh** shell rather than reattaching: a PTY holds no replayable history, so
 pretending to resume would present an empty screen mid-session.
 
+### Updates
+
+`GET /api/update` -> `UpdateStatus` (local only, no network)
+`POST /api/update/check` -> `UpdateStatus` (fetches first)
+`POST /api/update/apply` -> `{message, detail, status}`, or 400 with `{error, status}`
+
+Whether this copy is behind **its own remote**, asked of git rather than of a web API. The alternative needs a
+hardcoded repository — which makes a fork check the wrong one — plus a token, a rate-limit story, and a
+third-party request from an app that claims to make none of its own. The install is already a clone with a
+remote, so `@{u}` is the honest question.
+
+States: `up-to-date`, `behind`, `ahead`, `diverged`, `no-upstream`, `not-a-repo`, `error`. Each is a state, not
+a failure: a copy downloaded as a zip reports `not-a-repo` rather than erroring, and a branch tracking nothing
+says so.
+
+`incoming` carries the actual commits (sha, subject, author, date, newest first, capped at 20) because a bare
+count does not tell anyone whether to bother. `lastFetchedAt` comes from the mtime of `.git/FETCH_HEAD`, so it
+survives a restart.
+
+**Apply is `git merge --ff-only` and nothing else.** It refuses a dirty tree (the person most likely to press it
+is someone editing Flight Deck itself), refuses a diverged fork rather than merging, and never resets, rebases
+or stashes. Dependencies are not installed and the server is not restarted — both would kill the process serving
+the request — so the response says to do it.
+
+The client reads locally on every launch and only fetches when the last fetch was over six hours ago, or when
+the user presses Check now. With `settings.checkForUpdates` off, the route refuses too, so the setting means what
+it says.
+
+Verified against real repositories in `test/update.test.ts`: a bare remote plus two clones covering behind,
+ahead, diverged, no-upstream, not-a-repo, dirty, a successful fast-forward, and both refusals leaving `HEAD`
+untouched. On this machine the real fetch against `origin` took ~1s.
+
 ### Attachments and tool access
 
 Attachments are written to `~/.flightdeck/attachments/<day>/`, and the *path* is appended to the prompt —

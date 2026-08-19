@@ -1228,3 +1228,47 @@ zero, so a test pins the casing.
 
 The page's empty state now requires BOTH sources to be empty. "Nothing recorded yet" while a 15 MB
 transcript sat on disk is what made this look broken rather than incomplete.
+
+## Update checks ask git, not GitHub
+
+Someone who forks or clones this repository should hear about new commits. The obvious implementation is the
+GitHub API, and it is wrong three times over: it needs a hardcoded repository, so a fork would be told about
+*this* repo rather than their own; it is a third-party request from an app whose Privacy section says it makes
+none of its own; and it brings tokens and rate limits with it.
+
+The install is already a git clone with a remote, so the question is just `HEAD..@{u}`. A fork compares against
+the fork, which is where its owner actually pushes and pulls. No key, no service, no hardcoded URL — and it
+works for a private mirror or a self-hosted remote without changing anything.
+
+**Every unusual situation is a state rather than an error**: `not-a-repo` for a zip download, `no-upstream` for
+a local branch, `ahead` for someone with unpushed work, `diverged` for a fork that has its own commits. Each
+gets its own sentence in the UI, because vague status text is what makes people ignore an update prompt.
+
+**`incoming` lists the commits, not just a count.** "3 commits behind" tells you nothing about whether to bother;
+three subjects tell you immediately.
+
+**Apply is `merge --ff-only`, and refuses more often than it acts.** A dirty tree is refused because the person
+most likely to press that button is someone editing Flight Deck itself. A diverged fork is refused rather than
+merged — a merge commit nobody asked for, in someone's own fork, is far worse than a refusal. Nothing resets,
+rebases or stashes, and a test asserts those words appear nowhere in the file. Dependencies are not installed and
+the server is not restarted, because both would kill the process handling the request; the response says to do
+both.
+
+**The network is only touched when what we know is stale.** A local read is free and happens per launch; a fetch
+happens at most every six hours, or on demand. The setting to turn it off is enforced on the server as well as
+the client, so it means what it says.
+
+Verified against real repositories rather than mocks — a bare remote and two clones covering all seven states
+plus the two refusals, confirming `HEAD` was untouched in both. Mocked git would have proved nothing here, since
+the whole point of asking git is that git is the source of truth.
+
+## CONTRIBUTING.md
+
+Written from the rules already in force rather than invented for the occasion: the branch prefixes, the
+imperative-subject commit format, the dependency-justification rule, and the eight hard rules are the same ones
+the maintainer works under, which is why CLAUDE.md is linked rather than paraphrased.
+
+The section that matters most is "say what you ran it against". This project has a documented history of bugs
+that typechecked, passed unit tests, and only failed on a real machine — `--verbose`, `GIT_ASKPASS`,
+`ENAMETOOLONG`, the shell tool being named `PowerShell` — so "tests pass" is stated outright as insufficient
+evidence, with the specific verification each area needs.
