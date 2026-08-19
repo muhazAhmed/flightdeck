@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import {
   ChevronRight,
@@ -309,73 +309,77 @@ export function ProjectSidebar({
         )}
       </div>
 
-      {/* The deck is the way back out to everything, so it sits with the other constant tools rather
-          than behind a menu. */}
-      <button
-        onClick={() => toggleView('deck')}
-        title="Deck — every project at once (Ctrl+Shift+D)"
-        className={cn(
-          'mx-2 mb-1 flex items-center gap-2.5 rounded-md px-2 py-2 text-left text-[13.5px]',
-          'transition-colors duration-(--duration-fast)',
-          view === 'deck'
-            ? 'bg-accent-subtle text-text-primary'
-            : 'text-text-secondary hover:bg-surface-2 hover:text-text-primary'
-        )}
-      >
-        <LayoutGrid
-          size={15}
-          className={cn('shrink-0', view === 'deck' ? 'text-accent-bright' : 'text-text-muted')}
+      {/*
+        The three tools, one row.
+        Settings is deliberately absent — the profile row below opens it, and a second entry point for the same
+        destination is clutter. Shortcuts live in the tooltips: at a third of this width a chip beside the label
+        truncates to nothing useful.
+      */}
+      <div className="mx-2 mb-1 grid grid-cols-3 gap-1.5">
+        <NavTile
+          icon={<Coins size={15} />}
+          label="Usage"
+          title="Usage — cost and quota per project (Ctrl+Shift+U)"
+          active={view === 'usage'}
+          onClick={() => toggleView('usage')}
         />
-        <span className="min-w-0 flex-1 truncate">Deck</span>
-        <span className="shrink-0 rounded border border-border-subtle px-1 font-mono text-[11px] text-text-muted">
-          Ctrl ⇧ D
-        </span>
-      </button>
-
-      <button
-        onClick={() => toggleView('usage')}
-        title="Usage — cost and quota per project (Ctrl+Shift+U)"
-        className={cn(
-          'mx-2 mb-1 flex items-center gap-2.5 rounded-md px-2 py-2 text-left text-[13.5px]',
-          'transition-colors duration-(--duration-fast)',
-          view === 'usage'
-            ? 'bg-accent-subtle text-text-primary'
-            : 'text-text-secondary hover:bg-surface-2 hover:text-text-primary'
-        )}
-      >
-        <Coins size={15} className={cn('shrink-0', view === 'usage' ? 'text-accent-bright' : 'text-text-muted')} />
-        <span className="min-w-0 flex-1 truncate">Usage</span>
-        <span className="shrink-0 rounded border border-border-subtle px-1 font-mono text-[11px] text-text-muted">
-          Ctrl ⇧ U
-        </span>
-      </button>
-
-      {/* Above the profile: a tool you reach for constantly should not be buried in settings. */}
-      <button
-        onClick={toggleTerminal}
-        title="Terminal (Ctrl+J)"
-        className={cn(
-          'mx-2 mb-1 flex items-center gap-2.5 rounded-md px-2 py-2 text-left text-[13.5px]',
-          'transition-colors duration-(--duration-fast)',
-          terminalOpen
-            ? 'bg-accent-subtle text-text-primary'
-            : 'text-text-secondary hover:bg-surface-2 hover:text-text-primary'
-        )}
-      >
-        <SquareTerminal
-          size={15}
-          className={cn('shrink-0', terminalOpen ? 'text-accent-bright' : 'text-text-muted')}
+        <NavTile
+          icon={<SquareTerminal size={15} />}
+          label="Terminal"
+          title="Terminal (Ctrl+J)"
+          active={terminalOpen}
+          onClick={toggleTerminal}
         />
-        <span className="min-w-0 flex-1 truncate">Terminal</span>
-        <span className="shrink-0 rounded border border-border-subtle px-1 font-mono text-[11px] text-text-muted">
-          Ctrl J
-        </span>
-      </button>
+        <NavTile
+          icon={<LayoutGrid size={15} />}
+          label="Deck"
+          title="Deck — every project at once (Ctrl+Shift+D)"
+          active={view === 'deck'}
+          onClick={() => toggleView('deck')}
+        />
+      </div>
 
       <SidebarFooter onOpenSettings={() => setView('settings')} />
 
       <ConfirmDialog request={confirm} onClose={() => setConfirm(null)} />
     </nav>
+  );
+}
+
+/**
+ * One tool in the 2x2 grid.
+ *
+ * Icon above label rather than beside it: at half the sidebar's width a horizontal tile truncates "Terminal"
+ * on a narrow layout, and the label is what makes these findable in the first place.
+ */
+function NavTile({
+  icon,
+  label,
+  title,
+  active,
+  onClick
+}: {
+  icon: ReactNode;
+  label: string;
+  title: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      title={title}
+      className={cn(
+        'flex flex-col items-center gap-1 rounded-md px-2 py-2 text-[12px]',
+        'transition-colors duration-(--duration-fast)',
+        active
+          ? 'bg-accent-subtle text-text-primary'
+          : 'text-text-secondary hover:bg-surface-2 hover:text-text-primary'
+      )}
+    >
+      <span className={cn('shrink-0', active ? 'text-accent-bright' : 'text-text-muted')}>{icon}</span>
+      <span className="min-w-0 max-w-full truncate">{label}</span>
+    </button>
   );
 }
 

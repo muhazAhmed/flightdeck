@@ -156,3 +156,27 @@ test('each badge tone maps to a fill that carries white text', () => {
   }
   assert.ok(!/bg-success|bg-warn\b|bg-info\b/.test(tones), 'badges must not use the bright mark colours');
 });
+
+test('the three tools sit on one row', () => {
+  const html = renderSidebar([project], null);
+  assert.match(html, /grid-cols-3/);
+  for (const label of ['Usage', 'Terminal', 'Deck']) {
+    assert.match(html, new RegExp(`>${label}<`), `${label} is missing`);
+  }
+});
+
+test('settings has exactly one entry point in the sidebar', () => {
+  const html = renderSidebar([project], null);
+  // The profile row opens settings. A tile for the same destination was redundant and was removed.
+  assert.ok(!/>Settings</.test(html), 'no Settings tile');
+  assert.equal((html.match(/title="Settings \(Ctrl\+,\)"/g) ?? []).length, 1, 'one settings affordance');
+});
+
+test('a tool tile carries its shortcut in the tooltip, not as a chip', () => {
+  const html = renderSidebar([project], null);
+  // At half the sidebar width a shortcut chip beside the label truncates to nothing useful.
+  assert.match(html, /title="Deck — every project at once \(Ctrl\+Shift\+D\)"/);
+  assert.match(html, /title="Usage — cost and quota per project \(Ctrl\+Shift\+U\)"/);
+  assert.ok(!html.includes('Ctrl ⇧ D'), 'the chip should be gone from the tile');
+});
+
