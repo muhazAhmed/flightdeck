@@ -179,6 +179,111 @@ export const DEFAULT_SETTINGS: Settings = {
   lastProjectId: null
 };
 
+// ─── Usage (per-project cost and quota) ──────────────────────────────────
+
+/** One finished run, as appended to the usage log. */
+export interface UsageRecord {
+  at: string;
+  projectId: string;
+  chatId: string;
+  model: string | null;
+  numTurns: number;
+  durationMs: number;
+  /** Notional API-equivalent cost, per the CLI. Not money billed on a subscription. */
+  costUsd: number;
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  cacheCreationTokens: number;
+  isError: boolean;
+  denials: number;
+}
+
+export interface UsageTotals {
+  runs: number;
+  turns: number;
+  durationMs: number;
+  costUsd: number;
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  cacheCreationTokens: number;
+  errors: number;
+}
+
+export interface UsageByProject extends UsageTotals {
+  projectId: string;
+  /** Name at report time; a removed project keeps its id so its history is not orphaned. */
+  name: string;
+  /** Share of the period's cost, 0-1. */
+  share: number;
+  lastRunAt: string | null;
+}
+
+export interface UsageByModel extends UsageTotals {
+  model: string;
+  share: number;
+}
+
+export interface UsageByDay extends UsageTotals {
+  /** `YYYY-MM-DD` in local time, since "which day did I do that" is a local question. */
+  day: string;
+}
+
+/** One run, as the per-project detail table lists it. */
+export interface UsageRunRow {
+  at: string;
+  chatId: string;
+  /** Title at report time, or a marker when the chat has since been deleted. */
+  chatTitle: string;
+  model: string | null;
+  numTurns: number;
+  durationMs: number;
+  costUsd: number;
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  cacheCreationTokens: number;
+  isError: boolean;
+  denials: number;
+}
+
+/** Everything recorded for one project over a period. */
+export interface ProjectUsageReport {
+  projectId: string;
+  name: string;
+  days: number;
+  since: string | null;
+  totals: UsageTotals;
+  models: UsageByModel[];
+  daily: UsageByDay[];
+  /** Newest first, capped — see `RUN_ROW_LIMIT`. */
+  runs: UsageRunRow[];
+  /** Runs in the period beyond the cap, so a truncated table can say so. */
+  omittedRuns: number;
+  /** Cost per chat, so an expensive conversation is findable. */
+  chats: { chatId: string; title: string; runs: number; costUsd: number; lastRunAt: string }[];
+}
+
+export interface UsageReport {
+  /** Days covered, or 0 for everything recorded. */
+  days: number;
+  since: string | null;
+  totals: UsageTotals;
+  projects: UsageByProject[];
+  models: UsageByModel[];
+  daily: UsageByDay[];
+  /** The current quota window, when one is known. */
+  window: {
+    /** Unix seconds the window resets, from the CLI's own rate-limit event. */
+    resetsAt: number | null;
+    rateLimitType: string | null;
+    startedAt: string;
+    totals: UsageTotals;
+    projects: UsageByProject[];
+  };
+}
+
 // ─── Deck (cross-project overview) ───────────────────────────────────────
 
 /**
@@ -234,6 +339,11 @@ export interface AppState {
   settings?: Settings;
   /** Persisted panel widths, keyed by panel id. */
   layout: Record<string, number>;
+  /**
+   * The last quota window the CLI reported, so the usage view can bound "this window" after a reload.
+   * Absent until a run has produced a `rate_limit_event`.
+   */
+  lastRateLimit?: { resetsAt: number | null; rateLimitType: string | null; seenAt: string };
 }
 
 // ─── The agent stream, as the client sees it ─────────────────────────────────
@@ -299,6 +409,24 @@ export interface DoneEvent {
   /** Notional API-equivalent cost. NOT money billed on a subscription. */
   costUsd: number | null;
   denials: unknown[];
+  /** Tokens and model for this run, when the CLI reported them. */
+  usage: RunUsage | null;
+}
+
+/**
+ * What one run consumed.
+ *
+ * The four token counts are kept apart rather than summed because they are not comparable: a typical
+ * run reads tens of thousands of cached tokens and writes a few hundred. Adding them produces a big
+ * number that means nothing.
+ */
+export interface RunUsage {
+  /** Canonical model id, e.g. `claude-opus-5`. The raw key can carry a suffix like `[1m]`. */
+  model: string | null;
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  cacheCreationTokens: number;
 }
 
 export interface ErrorEvent {

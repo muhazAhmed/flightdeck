@@ -9,6 +9,7 @@ import { ChatPanel } from '@/features/chat/ChatPanel';
 import { ImportSessionDialog } from '@/features/chat/ImportSessionDialog';
 import { CommandPalette } from '@/features/command-palette/CommandPalette';
 import { DeckPage } from '@/features/deck/DeckPage';
+import { UsagePage } from '@/features/usage/UsagePage';
 import { AddProjectDialog } from '@/features/projects/AddProjectDialog';
 import { ProjectSidebar } from '@/features/projects/ProjectSidebar';
 import { useProjects } from '@/features/projects/useProjects';
@@ -45,14 +46,12 @@ export function AppShell() {
   const toggleSidebar = useWorkspace((s) => s.toggleSidebar);
   const toggleChanges = useWorkspace((s) => s.toggleChanges);
   const setPaletteOpen = useWorkspace((s) => s.setPaletteOpen);
-  const settingsOpen = useWorkspace((s) => s.settingsOpen);
-  const deckOpen = useWorkspace((s) => s.deckOpen);
-  const setDeckOpen = useWorkspace((s) => s.setDeckOpen);
-  const toggleDeck = useWorkspace((s) => s.toggleDeck);
+  const view = useWorkspace((s) => s.view);
+  const setView = useWorkspace((s) => s.setView);
+  const toggleView = useWorkspace((s) => s.toggleView);
   const terminalOpen = useWorkspace((s) => s.terminalOpen);
   const toggleTerminal = useWorkspace((s) => s.toggleTerminal);
   const setTerminalOpen = useWorkspace((s) => s.setTerminalOpen);
-  const setSettingsOpen = useWorkspace((s) => s.setSettingsOpen);
   const { settings, loaded: settingsLoaded, update: updateSettings, reset: resetSettings } = useSettings();
 
   const project = projects.find((p) => p.id === selectedProjectId) ?? null;
@@ -145,7 +144,7 @@ export function AppShell() {
     }
     // Nothing to restore: open on the deck rather than an empty chat, which is the more useful
     // question to be looking at when you do not yet know which repo you are working in.
-    if (projects.length > 0) setDeckOpen(true);
+    if (projects.length > 0) setView('deck');
   }, [
     settingsLoaded,
     loading,
@@ -154,7 +153,7 @@ export function AppShell() {
     settings.lastProjectId,
     selectedProjectId,
     selectProject,
-    setDeckOpen
+    setView
   ]);
 
   /**
@@ -181,21 +180,15 @@ export function AppShell() {
   );
 
   useHotkey('k', () => setPaletteOpen(true), { inFields: true });
-  useHotkey(',', () => setSettingsOpen(true), { inFields: true });
+  useHotkey(',', () => setView('settings'), { inFields: true });
   // Esc leaves settings. No modifier, and it must work while a field has focus.
   // Esc leaves whichever whole-pane view is open. No modifier, and it must work while a field has
   // focus.
-  useHotkey(
-    'Escape',
-    () => {
-      setSettingsOpen(false);
-      setDeckOpen(false);
-    },
-    { ctrl: false, inFields: true }
-  );
+  useHotkey('Escape', () => setView('workspace'), { ctrl: false, inFields: true });
   // Ctrl+J must reach the terminal even while it has focus, which is why it fires inside fields.
   useHotkey('j', toggleTerminal, { inFields: true });
-  useHotkey('d', toggleDeck, { shift: true, inFields: true });
+  useHotkey('d', () => toggleView('deck'), { shift: true, inFields: true });
+  useHotkey('u', () => toggleView('usage'), { shift: true, inFields: true });
   useHotkey('b', toggleSidebar);
   useHotkey('g', toggleChanges, { shift: true });
 
@@ -214,12 +207,12 @@ export function AppShell() {
         `hidden` panel kept its width and left a dead gap where the sidebar used to be.
       */}
       <div className="flex min-h-0 flex-1">
-        {settingsOpen ? (
+        {view === 'settings' ? (
           <SettingsPage
             settings={settings}
             onUpdate={(patch) => void updateSettings(patch)}
             onReset={() => void resetSettings()}
-            onClose={() => setSettingsOpen(false)}
+            onClose={() => setView('workspace')}
           />
         ) : (
           <>
@@ -259,16 +252,33 @@ export function AppShell() {
           )}
           {sidebarCollapsed ? null : <ResizeHandle />}
 
-          {deckOpen ? (
+          {view === 'deck' ? (
             <Panel id="deck" minSize="30">
               <DeckPage
-                open={deckOpen}
+                open
                 onOpenProject={(id) => {
                   selectProject(id);
-                  setDeckOpen(false);
+                  setView('workspace');
                 }}
                 onAddProject={() => setAddOpen(true)}
-                onClose={() => setDeckOpen(false)}
+                onClose={() => setView('workspace')}
+              />
+            </Panel>
+          ) : view === 'usage' ? (
+            <Panel id="usage" minSize="30">
+              <UsagePage
+                open
+                onOpenProject={(id) => {
+                  selectProject(id);
+                  setView('workspace');
+                }}
+                onOpenChat={(id, chatId) => {
+                  // Project first: selecting a project clears the chat, so the order matters.
+                  selectProject(id);
+                  selectChat(chatId);
+                  setView('workspace');
+                }}
+                onClose={() => setView('workspace')}
               />
             </Panel>
           ) : (

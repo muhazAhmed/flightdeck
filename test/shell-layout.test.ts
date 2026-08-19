@@ -52,8 +52,8 @@ test('settings replaces the workspace rather than sitting beside it', () => {
   // The bug: only the sidebar was guarded, so `Group` kept its flex space while settings was open
   // and the chat/changes panels were squeezed into a sliver at the right edge. The two must be
   // branches of one ternary, never siblings.
-  const branch = /\{settingsOpen \? \(([\s\S]*?)\) : \(/.exec(shell);
-  assert.ok(branch?.[1], 'expected settingsOpen to choose between two branches');
+  const branch = /\{view === 'settings' \? \(([\s\S]*?)\) : \(/.exec(shell);
+  assert.ok(branch?.[1], "expected view === 'settings' to choose between two branches");
   assert.match(branch[1], /<SettingsPage/, 'the settings branch should render the settings page');
   assert.ok(
     !branch[1].includes('<Group'),
@@ -70,3 +70,22 @@ test('the settings page is told to fill its container', () => {
   const root = /<div className="([^"]*)">/.exec(page)?.[1] ?? '';
   assert.match(root, /flex-1/, 'the settings root needs flex-1 to fill the shell');
 });
+
+test('the whole-pane views are one field, not a boolean each', () => {
+  const store = readFileSync(fileURLToPath(new URL('../client/store/workspace.ts', import.meta.url)), 'utf8');
+  // Three mutually-exclusive booleans can represent states that must never exist — settings and the
+  // deck open at once leaves two "back" affordances that disagree. Here the exclusivity is the type.
+  assert.match(store, /export type View =/);
+  for (const dead of ['settingsOpen', 'deckOpen', 'usageOpen']) {
+    assert.ok(!store.includes(dead), `${dead} should be gone in favour of the view field`);
+  }
+});
+
+test('every whole-pane view is reachable and closes to the workspace', () => {
+  for (const view of ['deck', 'usage', 'settings']) {
+    assert.ok(shell.includes(`view === '${view}'`), `${view} is never rendered`);
+  }
+  // Esc must land somewhere real rather than closing one view onto another.
+  assert.match(shell, /useHotkey\('Escape', \(\) => setView\('workspace'\)/);
+});
+

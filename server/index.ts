@@ -15,6 +15,7 @@ import { sessionRoutes } from './routes/sessions.js';
 import { settingsRoutes } from './routes/settings.js';
 import { overviewRoutes } from './routes/overview.js';
 import { storageRoutes } from './routes/storage.js';
+import { usageRoutes } from './routes/usage.js';
 import { terminalRoutes } from './routes/terminal.js';
 import { userRoutes } from './routes/user.js';
 
@@ -43,6 +44,7 @@ await app.register(attachmentRoutes);
 await app.register(settingsRoutes);
 await app.register(overviewRoutes);
 await app.register(storageRoutes);
+await app.register(usageRoutes);
 await app.register(terminalRoutes);
 
 // In development Vite serves the client and proxies here. In production Fastify serves

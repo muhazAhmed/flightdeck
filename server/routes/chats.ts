@@ -3,6 +3,7 @@ import type { FastifyInstance, FastifyReply } from 'fastify';
 import type { Chat, PermissionMode, UiEvent } from '@shared/types';
 import * as agent from '../agent.js';
 import * as state from '../state.js';
+import * as usage from '../usage.js';
 import { readTranscript } from '../transcript.js';
 import { badRequest, notFound } from '../errors.js';
 
@@ -142,6 +143,36 @@ export async function chatRoutes(app: FastifyInstance): Promise<void> {
       text,
       resume,
       (event) => {
+        // Recorded regardless of whether the tab is still listening: the run happened and it spent
+        // quota, so closing the tab must not lose the accounting for it.
+        if (event.type === 'done') {
+          usage.append({
+            at: new Date().toISOString(),
+            projectId: project.id,
+            chatId: chat.id,
+            model: event.usage?.model ?? chat.model ?? null,
+            numTurns: event.numTurns ?? 0,
+            durationMs: event.durationMs ?? 0,
+            costUsd: event.costUsd ?? 0,
+            inputTokens: event.usage?.inputTokens ?? 0,
+            outputTokens: event.usage?.outputTokens ?? 0,
+            cacheReadTokens: event.usage?.cacheReadTokens ?? 0,
+            cacheCreationTokens: event.usage?.cacheCreationTokens ?? 0,
+            isError: event.isError,
+            denials: event.denials.length
+          });
+        }
+        // The window the quota resets on, kept so the usage view can still bound "this window" after a
+        // reload — the CLI only mentions it while a run is in flight.
+        if (event.type === 'rate_limit') {
+          state.update((s) => {
+            s.lastRateLimit = {
+              resetsAt: event.resetsAt,
+              rateLimitType: event.rateLimitType,
+              seenAt: new Date().toISOString()
+            };
+          });
+        }
         if (!clientGone) send(event);
       },
       state.read().settings?.maxTurns ?? 0

@@ -1075,3 +1075,63 @@ biggest leverage, but it sits close to the multi-agent line this project deliber
 cross-repo dependency drift matrix, and a work journal for handover and billing. The deck came first
 because it is felt on every single launch.
 
+## Usage accounting, and why the numbers are presented apart
+
+The CLI reports a run's cost and tokens once, in the `result` event, and then forgets. Nothing accumulates
+that per repository over weeks, so "which client is eating my five-hour window" and "what did a month on
+this repo come to" were unanswerable. One append-only line per finished run makes both arithmetic.
+
+**A separate JSONL file, not `state.json`.** That document is rewritten atomically on every change;
+appending thousands of records to it would mean rewriting the whole file to add 300 bytes. A log wants
+`appendFileSync`. Every line is validated on read, because the writer can be killed mid-write — a
+truncated final line is normal, and it costs one line rather than the file.
+
+**The four token counts are never summed.** A real Haiku run measured 10 input, 49 output, 0 cache read
+and 28,581 cache creation. One combined "tokens" number would be dominated by caching and would mean
+nothing, so they are stored and shown apart.
+
+**Cost is labelled notional wherever it appears.** `total_cost_usd` is what the tokens would have cost
+through the API; a subscription is not billed per token. Presenting it as money spent would be a lie, and
+the honest use — comparing one project against another — survives the label. Totals are rounded on the way
+out because summing real CLI costs yields `0.45736200000000005`.
+
+**Two traps in the result record, both of which fail silently.** There is no top-level `model` field: the
+model is a KEY of `modelUsage` carrying a `[1m]` context suffix, so `canonicalModel` is preferred. And
+`usage` uses snake_case while `modelUsage` uses camelCase for the same numbers — reading the wrong casing
+returns a confident zero. Pinned by a test against the captured sample.
+
+**The window is the CLI's, not ours.** `rate_limit_event` gives the real `resetsAt`, which is persisted to
+`state.lastRateLimit` because the CLI only mentions it while a run is in flight. Without one, the window
+falls back to the last five hours and the UI says so rather than implying precision. It is computed
+independently of the selected period, so viewing 90 days does not widen "this window" to 90 days.
+
+Runs are recorded even when the browser tab has closed: the run happened and it spent quota. And a run
+whose project was later removed keeps its history, labelled — dropping the row would make the totals
+disagree with the rows.
+
+## A total is not an answer
+
+The per-project table said *how much*; the immediate next question is *which run*, and then *which
+conversation*. So a project opens up into every individual run — timestamp, chat, model, turns, duration,
+tokens, cost — plus its chats ranked by cost, with one click from a run to the chat that caused it.
+
+`aggregateProject` reuses the same `add` and `round` helpers as the cross-project report rather than
+summing again. Two implementations of one sum is how a detail page ends up disagreeing with the row that
+led to it, and a test compares the two directly for exactly that reason.
+
+The run table is capped at 250 rows because 4000 rows is not detail, it is a wall — and the number
+dropped is returned and displayed, since a silently truncated table reads as "that is all there was". The
+totals above it still cover everything.
+
+Verified with three real runs across two projects: attribution came out 84%/16%, the drill-down listed
+them newest-first, and a chat deleted earlier showed as `Deleted chat` with its cost intact — which is
+the point of labelling rather than hiding it.
+
+## Whole-pane views are one field
+
+Settings, the deck and usage each take the entire pane. Three booleans could represent states that must
+never exist (settings *and* the deck open leaves the user with two "back" affordances that disagree), and
+every new view added another pair of writes to keep in sync. `view: 'workspace' | 'deck' | 'usage' |
+'settings'` makes the exclusivity a type instead of a convention, and `Esc` has exactly one meaning:
+return to the workspace.
+

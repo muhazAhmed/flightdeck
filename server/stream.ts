@@ -10,7 +10,7 @@
  *
  * Event shapes verified against Claude Code 2.1.233 — see API.md §1.
  */
-import type { UiEvent } from '@shared/types';
+import type { RunUsage, UiEvent } from '@shared/types';
 
 /** Accumulates stdout chunks and yields whole lines. A JSON object is never parsed
  *  before its terminating newline arrives — a chunk boundary can land mid-object. */
@@ -53,6 +53,42 @@ function contentToText(content: unknown): string {
 
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null;
+}
+
+function count(value: unknown): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : 0;
+}
+
+/**
+ * Tokens and model from a `result` record.
+ *
+ * TWO TRAPS, both verified against a real run:
+ *
+ *  - There is **no top-level `model` field**. The model is a KEY of `modelUsage`
+ *    (`"claude-opus-5[1m]"`), and that key carries a context-window suffix. `canonicalModel` inside
+ *    the entry is the id without it, so it is preferred when present.
+ *  - Token counts live under `usage` in **snake_case** (`cache_read_input_tokens`), while the same
+ *    numbers appear under `modelUsage` in camelCase. Reading the wrong casing yields a confident zero.
+ */
+function readUsage(record: Record<string, unknown>): RunUsage | null {
+  const usage = isRecord(record.usage) ? record.usage : null;
+  const models = isRecord(record.modelUsage) ? record.modelUsage : null;
+
+  const key = models ? Object.keys(models)[0] : undefined;
+  const entry = key && isRecord(models?.[key]) ? (models[key] as Record<string, unknown>) : null;
+  const model = typeof entry?.canonicalModel === 'string' ? entry.canonicalModel : (key ?? null);
+
+  if (!usage && !entry) return null;
+
+  return {
+    model,
+    inputTokens: usage ? count(usage.input_tokens) : count(entry?.inputTokens),
+    outputTokens: usage ? count(usage.output_tokens) : count(entry?.outputTokens),
+    cacheReadTokens: usage ? count(usage.cache_read_input_tokens) : count(entry?.cacheReadInputTokens),
+    cacheCreationTokens: usage
+      ? count(usage.cache_creation_input_tokens)
+      : count(entry?.cacheCreationInputTokens)
+  };
 }
 
 /**
@@ -157,7 +193,8 @@ export function translate(record: unknown): UiEvent[] {
         numTurns: typeof record.num_turns === 'number' ? record.num_turns : null,
         durationMs: typeof record.duration_ms === 'number' ? record.duration_ms : null,
         costUsd: typeof record.total_cost_usd === 'number' ? record.total_cost_usd : null,
-        denials: Array.isArray(record.permission_denials) ? record.permission_denials : []
+        denials: Array.isArray(record.permission_denials) ? record.permission_denials : [],
+        usage: readUsage(record)
       }
     ];
   }

@@ -232,6 +232,53 @@ Verified by terminating two sockets without a close handshake and confirming bot
 Reconnecting starts a **fresh** shell rather than reattaching: a PTY holds no replayable history, so
 pretending to resume would present an empty screen mid-session.
 
+### Usage (per-project cost and quota)
+
+`GET /api/usage?days=1|7|30|90|0` → `UsageReport` (0 means everything recorded)
+
+Aggregated from `~/.flightdeck/usage.jsonl`, one line appended per finished run. A separate file rather
+than `state.json` because that document is rewritten atomically on every change — appending thousands of
+records to it would mean rewriting the whole thing to add 300 bytes. Every line is validated on read: the
+writer can be killed mid-write, so a truncated last line is normal and costs one line, not the file.
+
+**Two traps in the CLI's `result` record, both verified against a real run.** There is no top-level
+`model` field — the model is a KEY of `modelUsage` (`claude-opus-5[1m]`, with a context-window suffix),
+so `canonicalModel` inside the entry is preferred. And token counts appear under `usage` in snake_case
+(`cache_read_input_tokens`) while `modelUsage` carries the same numbers in camelCase. Reading the wrong
+casing yields a confident zero rather than an error.
+
+The four token counts are stored and shown **separately, never summed**: a typical run reads tens of
+thousands of cached tokens and writes a few hundred, so a single "tokens" figure means nothing. Measured
+on a real Haiku run: 10 in, 49 out, 0 cache read, 28,581 cache creation.
+
+`costUsd` is what the same tokens would have cost through the API. A subscription is not billed per
+token, so it is labelled **notional** everywhere it appears — honest for comparing projects, not a bill.
+Totals are rounded on the way out, because summing real CLI costs produces `0.45736200000000005`.
+
+The quota window is bounded by the CLI's own `resetsAt` (persisted to `state.lastRateLimit`, since the
+CLI only mentions it mid-run), falling back to the last five hours — and the UI says which it used. The
+window is computed independently of the selected period, so looking at 90 days does not widen "this
+window" to 90 days.
+
+A run whose project has since been removed keeps its history, labelled `(removed)`: the quota was still
+spent, and dropping the row would make the totals disagree with the rows.
+
+`GET /api/usage/project?projectId=<id>&days=<range>` → `ProjectUsageReport`
+
+One project opened up: its own totals, model split and daily figures, plus **every individual run** —
+timestamp, chat, model, turns, duration, output and cache tokens, cost, error flag — newest first. Also
+that project's chats ranked by cost, so an expensive conversation is findable rather than merely
+suspected.
+
+Capped at 250 rows, and the count of older runs is returned so the table can say what it left out; the
+totals still cover everything. A deleted chat's runs are labelled `Deleted chat` rather than shown blank.
+`aggregateProject` shares the same `add`/`round` helpers as the cross-project report, so a detail page can
+never disagree with the row that led to it — asserted by a test that compares the two.
+
+Verified with three real Haiku runs across two projects: cross-project attribution came out flightdeck
+84% / prototype 16%, the drill-down listed all three runs newest-first with per-run tokens and cost, and a
+chat deleted earlier appeared as `Deleted chat` with its cost intact.
+
 ### Deck (cross-project overview)
 
 `GET /api/overview` → `{projects: ProjectOverview[], readAt}`

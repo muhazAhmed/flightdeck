@@ -10,6 +10,7 @@ import {
   Plus,
   Search,
   Settings,
+  Coins,
   LayoutGrid,
   SquareTerminal,
   Trash2
@@ -55,11 +56,11 @@ export function ProjectSidebar({
   const selectProject = useWorkspace((s) => s.selectProject);
   const selectChat = useWorkspace((s) => s.selectChat);
   const setPaletteOpen = useWorkspace((s) => s.setPaletteOpen);
-  const setSettingsOpen = useWorkspace((s) => s.setSettingsOpen);
   const terminalOpen = useWorkspace((s) => s.terminalOpen);
   const toggleTerminal = useWorkspace((s) => s.toggleTerminal);
-  const deckOpen = useWorkspace((s) => s.deckOpen);
-  const setDeckOpen = useWorkspace((s) => s.setDeckOpen);
+  const view = useWorkspace((s) => s.view);
+  const toggleView = useWorkspace((s) => s.toggleView);
+  const setView = useWorkspace((s) => s.setView);
 
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [query, setQuery] = useState('');
@@ -108,9 +109,15 @@ export function ProjectSidebar({
         <IconButton label="Add project" className="mt-1 size-9" icon={<Plus size={16} />} onClick={onAddProject} />
         <IconButton
           label="Deck — every project at once (Ctrl+Shift+D)"
-          className={cn('mt-auto size-9', deckOpen && 'bg-accent-subtle text-accent-bright')}
+          className={cn('mt-auto size-9', view === 'deck' && 'bg-accent-subtle text-accent-bright')}
           icon={<LayoutGrid size={16} />}
-          onClick={() => setDeckOpen(!deckOpen)}
+          onClick={() => toggleView('deck')}
+        />
+        <IconButton
+          label="Usage — cost and quota per project (Ctrl+Shift+U)"
+          className={cn('size-9', view === 'usage' && 'bg-accent-subtle text-accent-bright')}
+          icon={<Coins size={16} />}
+          onClick={() => toggleView('usage')}
         />
         <IconButton
           label="Terminal (Ctrl+J)"
@@ -122,7 +129,7 @@ export function ProjectSidebar({
           label="Settings (Ctrl+,)"
           className="size-9"
           icon={<Settings size={16} />}
-          onClick={() => setSettingsOpen(true)}
+          onClick={() => setView('settings')}
         />
       </nav>
     );
@@ -287,23 +294,41 @@ export function ProjectSidebar({
       {/* The deck is the way back out to everything, so it sits with the other constant tools rather
           than behind a menu. */}
       <button
-        onClick={() => setDeckOpen(!deckOpen)}
+        onClick={() => toggleView('deck')}
         title="Deck — every project at once (Ctrl+Shift+D)"
         className={cn(
           'mx-2 mb-1 flex items-center gap-2.5 rounded-md px-2 py-2 text-left text-[13.5px]',
           'transition-colors duration-(--duration-fast)',
-          deckOpen
+          view === 'deck'
             ? 'bg-accent-subtle text-text-primary'
             : 'text-text-secondary hover:bg-surface-2 hover:text-text-primary'
         )}
       >
         <LayoutGrid
           size={15}
-          className={cn('shrink-0', deckOpen ? 'text-accent-bright' : 'text-text-muted')}
+          className={cn('shrink-0', view === 'deck' ? 'text-accent-bright' : 'text-text-muted')}
         />
         <span className="min-w-0 flex-1 truncate">Deck</span>
         <span className="shrink-0 rounded border border-border-subtle px-1 font-mono text-[11px] text-text-muted">
           Ctrl ⇧ D
+        </span>
+      </button>
+
+      <button
+        onClick={() => toggleView('usage')}
+        title="Usage — cost and quota per project (Ctrl+Shift+U)"
+        className={cn(
+          'mx-2 mb-1 flex items-center gap-2.5 rounded-md px-2 py-2 text-left text-[13.5px]',
+          'transition-colors duration-(--duration-fast)',
+          view === 'usage'
+            ? 'bg-accent-subtle text-text-primary'
+            : 'text-text-secondary hover:bg-surface-2 hover:text-text-primary'
+        )}
+      >
+        <Coins size={15} className={cn('shrink-0', view === 'usage' ? 'text-accent-bright' : 'text-text-muted')} />
+        <span className="min-w-0 flex-1 truncate">Usage</span>
+        <span className="shrink-0 rounded border border-border-subtle px-1 font-mono text-[11px] text-text-muted">
+          Ctrl ⇧ U
         </span>
       </button>
 
@@ -329,7 +354,7 @@ export function ProjectSidebar({
         </span>
       </button>
 
-      <SidebarFooter onOpenSettings={() => setSettingsOpen(true)} />
+      <SidebarFooter onOpenSettings={() => setView('settings')} />
     </nav>
   );
 }

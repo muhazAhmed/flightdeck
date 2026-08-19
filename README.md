@@ -74,6 +74,12 @@ a diff you commit yourself.
 This is the part an editor structurally cannot do: a window knows about one workspace, so "which of my
 twenty repos have uncommitted work?" costs twenty windows to answer. Here it is a glance.
 
+### Usage
+- **Every run recorded** — model, turns, duration, notional cost, tokens — then aggregated per project, per model and per day
+- **The current quota window**, bounded by the CLI's own reset time, showing which projects are eating it
+- **Open a project up** — every run with model, turns, duration, tokens and cost, its most expensive chats, and one click from a run to the conversation behind it
+- Cost is labelled notional throughout: a subscription is not billed per token, so the number is for comparing projects, not an invoice
+
 ### Projects
 - Repo-aware folder picker — non-repositories are rejected with a real reason
 - Nested repositories are separate projects, no special casing
@@ -161,7 +167,8 @@ Everything is optional — Flight Deck detects what it can and asks for the rest
 
 Preferences you set in the UI — theme, accent, density, terminal profile, confirmation level
 — live in `~/.flightdeck/state.json`, alongside your project list. Attachments go to
-`~/.flightdeck/attachments/`. Nothing is written inside your repositories.
+`~/.flightdeck/attachments/`, and one line per finished run to `~/.flightdeck/usage.jsonl`. Nothing is
+written inside your repositories.
 
 ## Keyboard shortcuts
 
@@ -171,6 +178,7 @@ Preferences you set in the UI — theme, accent, density, terminal profile, conf
 |---|---|
 | `Ctrl+K` | Command palette — jump to any project or chat |
 | `Ctrl+Shift+D` | The deck — every project at once |
+| `Ctrl+Shift+U` | Usage — cost and quota per project |
 | `Ctrl+Enter` | Send the prompt (plain `Enter` inserts a newline) |
 | `Ctrl+J` | Toggle the terminal |
 | `Ctrl+B` | Toggle the project sidebar |

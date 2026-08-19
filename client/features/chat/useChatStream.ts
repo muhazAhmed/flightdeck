@@ -225,7 +225,17 @@ export function useChatStream(chatId: string | null, onFilesTouched?: () => void
             /* keep the status line */
           }
           enqueue({ type: 'error', message, detail });
-          enqueue({ type: 'done', isError: true, result: null, numTurns: null, durationMs: null, costUsd: null, denials: [] });
+          enqueue({
+            type: 'done',
+            isError: true,
+            result: null,
+            numTurns: null,
+            durationMs: null,
+            costUsd: null,
+            denials: [],
+            // A client-side failure consumed nothing the CLI could report on.
+            usage: null
+          });
           return;
         }
 
@@ -261,7 +271,17 @@ export function useChatStream(chatId: string | null, onFilesTouched?: () => void
           message: 'The stream was interrupted.',
           detail: error instanceof Error ? error.message : String(error)
         });
-        enqueue({ type: 'done', isError: true, result: null, numTurns: null, durationMs: null, costUsd: null, denials: [] });
+        enqueue({
+            type: 'done',
+            isError: true,
+            result: null,
+            numTurns: null,
+            durationMs: null,
+            costUsd: null,
+            denials: [],
+            // A client-side failure consumed nothing the CLI could report on.
+            usage: null
+          });
       } finally {
         controller.current = null;
       }
