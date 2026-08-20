@@ -33,6 +33,7 @@ function project(overrides: Partial<ProjectOverview> = {}): ProjectOverview {
     lastCommitAt: new Date(NOW - 2 * HOUR).toISOString(),
     dirtySince: null,
     lastAgentRunAt: null,
+    shellRunning: false,
     error: null,
     ...overrides
   };
@@ -140,7 +141,7 @@ test('last activity takes the most recent of commit, agent run, and dirty file',
 const render = (overview: ProjectOverview) =>
   renderToStaticMarkup(
     <Tooltip.Provider>
-      <ProjectCard project={overview} onOpen={() => {}} />
+      <ProjectCard project={overview} onOpen={() => {}} onOpenTerminal={() => {}} onStopShell={() => {}} />
     </Tooltip.Provider>
   );
 

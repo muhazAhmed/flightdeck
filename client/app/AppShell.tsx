@@ -273,6 +273,11 @@ export function AppShell() {
                   selectProject(id);
                   setView('workspace');
                 }}
+                onOpenTerminal={(id) => {
+                  selectProject(id);
+                  setTerminalOpen(true);
+                  setView('workspace');
+                }}
                 onAddProject={() => setAddOpen(true)}
                 onClose={() => setView('workspace')}
               />

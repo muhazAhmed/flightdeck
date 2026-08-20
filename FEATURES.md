@@ -12,7 +12,8 @@ What the tool does, grouped by area, each tagged with the phase it lands in.
 | Feature | Phase | Notes |
 |---|---|---|
 | Add a project by folder | **done** | Picker opens where you last browsed (home directory on a fresh install) and marks which folders are git repos. Rejects non-repos with a real reason. |
-| Deck — every project at once | **done** | The one screen an editor cannot have. A card per project: branch, uncommitted count, how long that work has been sitting, ahead/behind, last commit, last agent run. Ranked by what wants you, not alphabetically, so work rotting since Tuesday sits above six clean repos. One button fetches every remote so ahead/behind stops being a stale zero. No agent, no tokens. `Ctrl+Shift+D`. |
+| Deck — every project at once | **done** | The one screen an editor cannot have. A card per project: branch, uncommitted count, how long that work has been sitting, ahead/behind, last commit, last agent run, and whether a shell is alive in it. Ranked by what wants you, not alphabetically, so work rotting since Tuesday sits above six clean repos — or narrowed by name/path and by state (uncommitted, unpushed, behind, shell running, problems), and sorted by activity, changes or name when that is the question instead. One button fetches every remote so ahead/behind stops being a stale zero. No agent, no tokens. `Ctrl+Shift+D`. |
+| Running shells, across every project | **done** | Shells outlive the panel that opened them, so a dev server can be running in a project you have not looked at all day. The deck is where that is visible: a badge on the card, a count in the header, a chip that shows only those projects, and a stop that does not require opening the project first. A card also opens a project straight into its terminal. |
 | Project list in sidebar | **partly** | Name, path, expandable chat list and a running indicator are in. **Branch and changed-file count on the row are not** — the deck shows both, the sidebar does not. |
 | Rename / remove from list | **partly** | Removing works and never touches the folder on disk. **Rename has a route (`PATCH /api/projects/:id`) and no UI.** |
 | Nested repos as separate projects | **done** | `acme/web/storefront` and `acme-server` are two projects. No special casing. |
@@ -119,7 +120,7 @@ Recorded so we don't drift back into it:
 
 ## Where it stands
 
-**48 features done. Nothing left in P1 or P2 as a whole feature** — the remaining work is six partial rows,
+**50 features done. Nothing left in P1 or P2 as a whole feature** — the remaining work is six partial rows,
 five P3 items, and six deliberately-deferred ones.
 
 The six partials are the honest list of "it works but not completely":

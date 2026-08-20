@@ -1605,3 +1605,42 @@ And the marker never matched: `console.log('TICK', n)` colourises the number, be
 is a TTY and a PTY is one — the output was `TICK <ESC>[33m2`. Concatenating into one token fixed it. That also
 explained a second failure that looked unrelated, where a leaked session made a later test count three shells instead
 of two: the leak came from a `dispose` sitting after the failing assertion instead of in `finally`.
+
+---
+
+### 2026-08-20 · The deck gains a filter, a sort, and the one fact only the server knows
+
+The deck ranked twenty projects by what wants you and offered no other question. Ranking is the right
+default and a poor monopoly: "where is the repo whose name I know" and "which of these has a server
+running" are not answered by any ordering of the same twenty cards.
+
+So: substring search over **name and path** — half the time you remember the folder, not the project name,
+and a forward slash typed into it finds a backslash path or search is useless on Windows. Chips for the
+states you actually ask about, each carrying its count so a chip whose answer is zero can be seen to be
+zero rather than pressed to find out; a zero chip is disabled rather than hidden, since a row that
+reshuffles as repositories change state is harder to aim at than one with a dead key in it. Sorts for
+activity, changes and name, with attention still the default.
+
+Nothing fuzzy, and no persistence. Fuzzy matching over twenty short names mostly produces surprises, and a
+remembered filter is how a screen greets you by hiding most of your projects with no visible cause.
+
+**The addition that is not a filter: `shellRunning`.** Shells now outlive the panel that opened them, which
+was the right fix and left a hole — a dev server can be alive in a project you have not looked at all day,
+holding a port, and nothing in the app said so. The deck already answers "what is true across every
+project", so it answers this one too: a badge on the card, a count in the header, a chip, and a stop that
+does not require opening the project first. That last one needed a route — the socket's `stop` only reaches
+a shell whose panel is open — and a list you cannot act on is a worse answer than no list.
+
+The card had to stop being a `<button>`, because it now carries controls and a button inside a button is
+invalid HTML that browsers repair by dropping the nesting, losing a click handler rather than merely looking
+wrong. It is a `div` with `role="button"` and Enter/Space by hand, and the controls stop propagation so
+pressing one is not also a press on the card.
+
+Verified live rather than only in tests: attaching a shell flipped the field to true, closing the panel left
+it true, the stop route returned `{stopped:true}` and then `{stopped:false}` on a second call, and the
+overview agreed at each step.
+
+One honest note: `mergeFf`'s `origin/HEAD` test failed once in a full parallel run and passed alone and on
+re-run. It calls `git remote set-head origin -a`, which queries the remote, so contention is the likely
+cause. Recorded rather than fixed blind — a test touched to silence a flake it does not understand is worse
+than a flake.

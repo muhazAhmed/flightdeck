@@ -13,6 +13,7 @@ import { join } from 'node:path';
 import type { FastifyInstance } from 'fastify';
 import type { Project, ProjectOverview } from '@shared/types';
 import { runGit } from '../git-exec.js';
+import * as pty from '../pty.js';
 import * as state from '../state.js';
 import { readStatus } from './status.js';
 
@@ -86,6 +87,9 @@ async function summarise(project: Project, lastAgentRunAt: string | null): Promi
     lastCommitAt: null,
     dirtySince: null,
     lastAgentRunAt,
+    // Read here rather than in a second request: a shell that outlives its panel is otherwise invisible until
+    // you happen to open the terminal in the project it belongs to.
+    shellRunning: pty.isRunning(project.id),
     error: null
   };
 
@@ -198,6 +202,7 @@ export async function overviewRoutes(app: FastifyInstance): Promise<void> {
           lastCommitAt: null,
           dirtySince: null,
           lastAgentRunAt: lastRunFor(project.id),
+          shellRunning: pty.isRunning(project.id),
           error: err instanceof Error ? err.message : String(err)
         })
       )

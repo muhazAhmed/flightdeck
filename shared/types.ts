@@ -478,6 +478,13 @@ export interface ProjectOverview {
   dirtySince: string | null;
   /** ISO time of the most recent message in any chat for this project, or null if never run. */
   lastAgentRunAt: string | null;
+  /**
+   * Whether this project has a live shell on the server.
+   *
+   * Shells outlive the panel that opened them, so a dev server can be running in a project you have not
+   * looked at all day. This is the one place that fact is visible across every project at once.
+   */
+  shellRunning: boolean;
   /** git's own words when a repository could not be read. */
   error: string | null;
 }

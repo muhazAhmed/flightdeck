@@ -1,5 +1,16 @@
-import { AlertTriangle, ArrowDownToLine, ArrowUpFromLine, GitBranch, GitCommitHorizontal, Sparkles } from 'lucide-react';
+import {
+  AlertTriangle,
+  ArrowDownToLine,
+  ArrowUpFromLine,
+  GitBranch,
+  GitCommitHorizontal,
+  Sparkles,
+  Square,
+  SquareTerminal
+} from 'lucide-react';
+import type { KeyboardEvent } from 'react';
 import type { ProjectOverview } from '@shared/types';
+import { IconButton } from '@/shared/ui/IconButton';
 import { cn } from '@/lib/cn';
 import { relativeTime, shortPath } from '@/lib/format';
 import { attentionFor, type Severity } from './attention';
@@ -19,22 +30,47 @@ const REASON: Record<Severity, string> = {
   calm: 'text-text-muted'
 };
 
-export function ProjectCard({
-  project,
-  onOpen
-}: {
+interface ProjectCardProps {
   project: ProjectOverview;
   onOpen: (projectId: string) => void;
-}) {
+  /** Open this project with its terminal showing — the shortcut for "go run something here". */
+  onOpenTerminal: (projectId: string) => void;
+  /** Kill the shell without opening the project. Only reachable while one is running. */
+  onStopShell: (project: ProjectOverview) => void;
+}
+
+/**
+ * One project.
+ *
+ * A div with a button's role rather than a `<button>`, because the card now carries its own controls and a
+ * button inside a button is invalid HTML — browsers recover by dropping the nesting, which loses the click
+ * handler rather than merely looking wrong. The keyboard contract is kept by hand: Enter and Space open it,
+ * exactly as they would on a real button.
+ */
+export function ProjectCard({ project, onOpen, onOpenTerminal, onStopShell }: ProjectCardProps) {
   const attention = attentionFor(project);
   const changes = project.stagedCount + project.unstagedCount + project.untrackedCount;
 
+  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    // Only when the card itself has focus: Enter on a nested control must run that control.
+    if (event.target !== event.currentTarget) return;
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      onOpen(project.projectId);
+    }
+  };
+
   return (
-    <button
+    <div
+      role="button"
+      tabIndex={0}
+      aria-label={`Open ${project.name}`}
       onClick={() => onOpen(project.projectId)}
+      onKeyDown={onKeyDown}
       className={cn(
-        'relative flex min-w-0 flex-col gap-2 overflow-hidden rounded-lg border border-border-subtle bg-surface-1 p-4 text-left',
+        'group relative flex min-w-0 cursor-pointer flex-col gap-2 overflow-hidden rounded-lg border border-border-subtle bg-surface-1 p-4 text-left',
         'transition-colors duration-(--duration-fast) hover:border-border hover:bg-surface-2',
+        'focus-visible:border-accent focus-visible:outline-none',
         // The severity edge, as a bar rather than a border so the card outline stays consistent.
         'before:absolute before:inset-y-0 before:left-0 before:w-0.5 before:content-[""]',
         EDGE[attention.severity]
@@ -47,6 +83,31 @@ export function ProjectCard({
             {shortPath(project.path)}
           </p>
         </div>
+
+        {/* Quiet until pointed at, so twenty cards do not read as a wall of icons. Focus reveals them too, so
+            they are reachable without a mouse. */}
+        <span
+          className="flex shrink-0 items-center gap-0.5"
+          // The card's own click would open the project, which is not what pressing a control on it means.
+          onClick={(event) => event.stopPropagation()}
+        >
+          {project.shellRunning ? (
+            <IconButton
+              label="Stop the shell running in this project"
+              tone="danger"
+              icon={<Square size={11} />}
+              onClick={() => onStopShell(project)}
+            />
+          ) : null}
+          <IconButton
+            label="Open this project with a terminal"
+            icon={<SquareTerminal size={12} />}
+            revealOnGroupHover
+            disabled={project.missing}
+            onClick={() => onOpenTerminal(project.projectId)}
+          />
+        </span>
+
         {changes > 0 ? (
           <span
             className={cn(
@@ -81,6 +142,17 @@ export function ProjectCard({
             {project.behind}
           </span>
         ) : null}
+        {/* A shell that outlived its panel is invisible everywhere else, and a forgotten dev server is a port
+            you cannot reuse and a build you think is stale. */}
+        {project.shellRunning ? (
+          <span
+            className="flex items-center gap-1 text-text-secondary"
+            title="A shell is running here — it keeps going while you work elsewhere"
+          >
+            <span className="size-1.5 rounded-full bg-success" />
+            shell
+          </span>
+        ) : null}
         {project.lastAgentRunAt ? (
           <span className="flex items-center gap-1" title="Last agent run">
             <Sparkles size={10} />
@@ -105,6 +177,6 @@ export function ProjectCard({
           <span className="shrink-0 tabular">{relativeTime(project.lastCommitAt)}</span>
         ) : null}
       </p>
-    </button>
+    </div>
   );
 }

@@ -24,6 +24,23 @@ export async function terminalRoutes(app: FastifyInstance): Promise<void> {
     defaultId: shells.defaultProfile().id
   }));
 
+  /**
+   * Stop a project's shell without being attached to it.
+   *
+   * The WebSocket `stop` message only reaches a shell whose panel is open, and shells now outlive their panel — so
+   * without this, killing a dev server in a project you are not in means switching to it first. The deck lists
+   * every running shell, and a list you cannot act on is a worse answer than no list.
+   *
+   * Idempotent: stopping a project with no shell is a no-op, not a 404, because that is the state the caller wanted.
+   */
+  app.post<{ Params: { projectId: string } }>('/api/terminal/:projectId/stop', async (req) => {
+    const project = state.findProject(req.params.projectId);
+    if (!project) return { stopped: false };
+    const wasRunning = pty.isRunning(project.id);
+    pty.dispose(project.id);
+    return { stopped: wasRunning };
+  });
+
   app.get<{ Querystring: { projectId?: string; shell?: string } }>(
     '/ws/terminal',
     { websocket: true },
@@ -106,7 +123,8 @@ export async function terminalRoutes(app: FastifyInstance): Promise<void> {
         }
         if (message.type === 'input') pty.write(key, message.data);
         else if (message.type === 'resize') pty.resize(key, message.cols, message.rows);
-        // An explicit stop, since a closing socket no longer kills the shell. This is the only path that does.
+        // An explicit stop, since a closing socket no longer kills the shell. The other path is the route above,
+        // for a project whose panel is not open.
         else if (message.type === 'stop') pty.dispose(key);
       });
 

@@ -199,6 +199,13 @@ start.
 `wsl --list --quiet` writes **UTF-16LE**. Decoded as UTF-8 it yields NUL-interleaved names that pass a
 "returns strings" check and then fail to launch, so the decode is pinned by a test.
 
+`POST /api/terminal/:projectId/stop` → `{stopped: boolean}`
+
+Kills a project's shell without being attached to it. The socket's `stop` message only reaches a shell whose
+panel is open, and shells now outlive their panel — without this, killing a dev server in a project you are
+not in means switching to it first. Idempotent: a project with no shell returns `{stopped: false}` rather
+than a 404, because that is the state the caller asked for. Used by the deck.
+
 `WS /ws/terminal?projectId=<id>&shell=<profileId>`
 
 | Direction | Message |
@@ -206,12 +213,13 @@ start.
 | client → server | `{type:"input", data:"ls
 "}` |
 | client → server | `{type:"resize", cols, rows}` |
-| server → client | `{type:"ready", shell, shellId, cwd, scrollback}` — first message, before any output |
+| client → server | `{type:"stop"}` — kill the shell; the only in-socket path that does |
+| server → client | `{type:"ready", shell, shellId, cwd, scrollback, restored}` — first message, before any output |
 | server → client | `{type:"output", data:"..."}` |
 | server → client | `{type:"exit", code}` — the shell ended; the server closes the socket after it |
 | server → client | `{type:"error", message, detail?}` — could not start; the socket closes |
 
-One PTY per socket, `cwd` = the project path. The shell is `?shell=` if it resolves, else
+One PTY per project, `cwd` = the project path. The shell is `?shell=` if it resolves, else
 `settings.terminalShell`, else the first detected profile (`FLIGHTDECK_SHELL` overrides all of them).
 An **unknown id falls back to the default rather than erroring** — a profile disappears when a shell is
 uninstalled, and a stale setting must not cost you a terminal. `ready` echoes `shellId` so the picker
@@ -470,7 +478,12 @@ chat deleted earlier appeared as `Deleted chat` with its cost intact.
 `GET /api/overview` → `{projects: ProjectOverview[], readAt}`
 
 Every project in one response: branch, tracking, ahead/behind, staged/unstaged/untracked counts, HEAD's
-subject and date, when an agent last ran there, and `dirtySince`.
+subject and date, when an agent last ran there, `dirtySince`, and `shellRunning`.
+
+`shellRunning` comes from the PTY table, not from git. Shells outlive the panel that opened them, so a dev
+server can be alive in a project you have not opened today, and this is the only place that is visible
+across every project at once. Read in the same response rather than a second request — a badge one refresh
+behind is worse than none. Stopping one is `POST /api/terminal/:projectId/stop`, in the Terminal section above.
 
 `dirtySince` is the mtime of the **oldest** changed file, not the newest. Newest tells you when you last
 saved, which you already know; oldest tells you this repository has had work sitting in it since
