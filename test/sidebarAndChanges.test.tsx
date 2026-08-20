@@ -157,10 +157,11 @@ test('each badge tone maps to a fill that carries white text', () => {
   assert.ok(!/bg-success|bg-warn\b|bg-info\b/.test(tones), 'badges must not use the bright mark colours');
 });
 
-test('the three tools sit on one row', () => {
+test('the four tools sit on one row', () => {
   const html = renderSidebar([project], null);
-  assert.match(html, /grid-cols-3/);
-  for (const label of ['Usage', 'Terminal', 'Deck']) {
+  assert.match(html, /grid-cols-4/);
+  // PR joined them when pull requests got their own page; still one row, per the layout that was asked for.
+  for (const label of ['Usage', 'Terminal', 'Deck', 'PR']) {
     assert.match(html, new RegExp(`>${label}<`), `${label} is missing`);
   }
 });

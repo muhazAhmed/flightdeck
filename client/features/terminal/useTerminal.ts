@@ -4,6 +4,7 @@ import { FitAddon } from '@xterm/addon-fit';
 import { WebglAddon } from '@xterm/addon-webgl';
 import type { TerminalServerMessage } from '@shared/types';
 import { useWorkspace } from '@/store/workspace';
+import { detectDeviceCode, type DeviceCode } from './deviceCode';
 
 export interface TerminalStatus {
   state: 'connecting' | 'ready' | 'exited' | 'error';
@@ -23,6 +24,15 @@ export interface TerminalStatus {
  * command is typed into the prompt and never runs.
  */
 const ENTER = String.fromCharCode(13);
+
+/**
+ * How much recent output is kept for pattern-matching.
+ *
+ * A tail, not the session: the point is to notice a prompt that is on screen now, and a device code found
+ * halfway up a scrollback is worse than none. Four kilobytes covers the few lines such a prompt occupies even
+ * when the PTY delivers them a byte at a time.
+ */
+const TAIL_BYTES = 4096;
 
 /** Read a colour token off the document so the terminal repaints with the app's theme. */
 function token(name: string): string {
@@ -66,6 +76,17 @@ export function useTerminal(
 
   const pendingCommand = useWorkspace((s) => s.pendingCommand);
   const clearPendingCommand = useWorkspace((s) => s.clearPendingCommand);
+
+  /**
+   * A device-code login waiting to be completed, when the shell has printed one.
+   *
+   * Lifted out of the stream because a terminal makes copying it hard: `Ctrl+C` is SIGINT, so the obvious
+   * attempt kills the flow. See `deviceCode.ts`.
+   */
+  const [deviceCode, setDeviceCode] = useState<DeviceCode | null>(null);
+  // Mirrored so the socket handler can compare without being re-created — re-creating it would kill the shell.
+  const deviceCodeRef = useRef<DeviceCode | null>(null);
+  const tailRef = useRef('');
 
   const [status, setStatus] = useState<TerminalStatus>({
     state: 'connecting',
@@ -171,10 +192,52 @@ export function useTerminal(
           });
           requestAnimationFrame(syncSize);
           break;
-        case 'output':
+        case 'output': {
           terminal.write(message.data);
           settled.current?.();
+
+          /*
+           * Scanning happens here, but state is only set on a transition.
+           *
+           * The rule is that nothing may `setState` per chunk — a busy build log would re-render the app
+           * thousands of times. So the tail is kept in a ref, the scan is behind a cheap prefilter, and React
+           * only hears about it when a *different* code appears, which happens once per login.
+           */
+          /*
+           * Replayed history is rendered but never read.
+           *
+           * A shell that was left in a device-code login an hour ago replays that text on reattach, and a
+           * banner raised from it would offer to press Enter into whatever is running now. Found by the first
+           * review this feature ever ran.
+           */
+          if (message.replay) break;
+
+          tailRef.current = (tailRef.current + message.data).slice(-TAIL_BYTES);
+          /*
+           * The prefilter also has to let a refinement through.
+           *
+           * `Press Enter to open <url>` does not contain the word "code", so filtering on the chunk alone
+           * meant the URL that arrives in the next chunk never reached the matcher — the fix for the missing
+           * link was dead code until the review pointed at it. While a code is live, every chunk is scanned.
+           */
+          if (/code/i.test(message.data) || deviceCodeRef.current !== null) {
+            const found = detectDeviceCode(tailRef.current);
+            const known = deviceCodeRef.current;
+            /*
+             * A new code, or the same one with the URL that arrived after it.
+             *
+             * The refinement matters: the code and the "Press Enter to open <url>" line arrive in separate
+             * chunks, so the first match has no URL — and comparing only the code meant the first answer won
+             * and the link never appeared. Seen exactly that way in use.
+             */
+            const better = found !== null && (found.code !== known?.code || (found.url !== null && !known?.url));
+            if (found && better) {
+              deviceCodeRef.current = found;
+              setDeviceCode(found);
+            }
+          }
           break;
+        }
         case 'exit':
           setStatus({
             state: 'exited',
@@ -282,8 +345,31 @@ export function useTerminal(
     if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ type: 'stop' }));
   }, []);
 
-  const focus = useCallback(() => terminalRef.current?.focus(), []);
-  const clear = useCallback(() => terminalRef.current?.clear(), []);
+  /**
+   * Type something into the shell on the user's behalf.
+   *
+   * Used by the device-code banner to press Enter, which is what a `gh auth login` prompt is waiting for. Not a
+   * general-purpose door: everything else goes through the queue in the store, which exists so a command can be
+   * requested before the socket is open.
+   */
+  const send = useCallback((data: string) => {
+    const socket = socketRef.current;
+    if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ type: 'input', data }));
+  }, []);
 
-  return { containerRef, status, focus, clear, stop, syncSize };
+  const dismissDeviceCode = useCallback(() => {
+    deviceCodeRef.current = null;
+    setDeviceCode(null);
+  }, []);
+
+  const focus = useCallback(() => terminalRef.current?.focus(), []);
+  const clear = useCallback(() => {
+    terminalRef.current?.clear();
+    // Clearing the screen must clear what was read off it, or a banner outlives the prompt it belongs to.
+    tailRef.current = '';
+    deviceCodeRef.current = null;
+    setDeviceCode(null);
+  }, []);
+
+  return { containerRef, status, focus, clear, stop, send, syncSize, deviceCode, dismissDeviceCode, ENTER };
 }

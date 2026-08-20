@@ -11,6 +11,7 @@ import {
   Settings,
   Coins,
   LayoutGrid,
+  GitPullRequest,
   SquareTerminal,
   Trash2
 } from 'lucide-react';
@@ -134,6 +135,12 @@ export function ProjectSidebar({
           className={cn('size-9', terminalOpen && 'bg-accent-subtle text-accent-bright')}
           icon={<SquareTerminal size={16} />}
           onClick={toggleTerminal}
+        />
+        <IconButton
+          label="Pull requests — review a branch before you raise it"
+          className={cn('size-9', view === 'pr' && 'bg-accent-subtle text-accent-bright')}
+          icon={<GitPullRequest size={16} />}
+          onClick={() => toggleView('pr')}
         />
         <IconButton
           label="Settings (Ctrl+,)"
@@ -310,12 +317,12 @@ export function ProjectSidebar({
       </div>
 
       {/*
-        The three tools, one row.
+        The four tools, one row.
         Settings is deliberately absent — the profile row below opens it, and a second entry point for the same
         destination is clutter. Shortcuts live in the tooltips: at a third of this width a chip beside the label
         truncates to nothing useful.
       */}
-      <div className="mx-2 mb-1 grid grid-cols-3 gap-1.5">
+      <div className="mx-2 mb-1 grid grid-cols-4 gap-1.5">
         <NavTile
           icon={<Coins size={15} />}
           label="Usage"
@@ -336,6 +343,15 @@ export function ProjectSidebar({
           title="Deck — every project at once (Ctrl+Shift+D)"
           active={view === 'deck'}
           onClick={() => toggleView('deck')}
+        />
+        {/* Stays enabled without the GitHub CLI: the page explains what is missing and offers the fix, which
+            a disabled button with a tooltip cannot do. */}
+        <NavTile
+          icon={<GitPullRequest size={15} />}
+          label="PR"
+          title="Pull requests — review a branch before you raise it"
+          active={view === 'pr'}
+          onClick={() => toggleView('pr')}
         />
       </div>
 

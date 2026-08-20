@@ -473,6 +473,174 @@ Verified with three real Haiku runs across two projects: cross-project attributi
 84% / prototype 16%, the drill-down listed all three runs newest-first with per-run tokens and cost, and a
 chat deleted earlier appeared as `Deleted chat` with its cost intact.
 
+### External tools
+
+`GET /api/tools` → `{tools: ToolStatus[], checkedAt}` · `?refresh=1` re-probes instead of using the cache.
+
+What this machine has that Flight Deck does not ship. One entry today: `gh`, needed for pull requests and
+nothing else.
+
+**Asked at the point of use, never at install time.** There is no `postinstall` hook and a test asserts there
+never will be: `npm install` runs non-interactively under `npm ci`, in CI and in Docker, so a prompt there
+hangs a build with no explanation. Nothing here installs anything either — the response carries the official
+install command *for this machine*, and the UI types it into the user's own terminal where it can be read and
+stopped.
+
+Three states, not two. `installed: false` → `authenticated: null`, because claiming "not signed in" about a
+tool that is not there sends the user to the wrong instruction. `installed: true, authenticated: false` is a
+`gh auth login` away, and it fails as a permission error mid-request rather than as a missing command.
+
+`installCommand` is per operating system, and only ever a command whose package manager actually answered.
+`installManager` names which one, since the same tool is spelled differently everywhere:
+
+| OS | Probed in order | Command for `gh` |
+|---|---|---|
+| Windows | winget, choco, scoop | `winget install --id GitHub.cli --source winget` · `choco install gh` · `scoop install gh` |
+| macOS | brew, port | `brew install gh` · `sudo port install gh` |
+| Linux | dnf, pacman, zypper, apk, brew | `sudo dnf install gh` · `sudo pacman -S github-cli` · `sudo zypper install gh` · `sudo apk add github-cli` · `brew install gh` |
+| anything else | — | none; `docsUrl` only |
+
+Per OS rather than one global list, and that is a bug fix: a single list let a Windows machine carrying MSYS2's
+`pacman` be handed `sudo pacman -S github-cli` — no `sudo` to run it, and a package set without that package.
+Being *present* is not being *appropriate*. Native managers sit above Homebrew on Linux because their updates
+arrive with the system's, and `brew` never carries `sudo` (it installs into its own prefix and refuses).
+
+Probed in order and short-circuited, so the usual cost is one spawn. `apt` is deliberately absent: the official
+Debian/Ubuntu route adds a keyring and an apt source first, and a privileged three-command sequence typed by a
+button is not something to accept on trust. Those machines get `docsUrl`.
+
+**Detection spawns the command; it does not stat `PATH`.** `winget` lives at
+`%LOCALAPPDATA%/Microsoft/WindowsApps/winget.exe`, an app execution alias — a zero-length reparse point that
+`stat` cannot resolve. Measured here: `existsSync` false, `statSync` ENOENT, `execFile('winget',
+['--version'])` prints a version. Anything Store-installed has that shape, so a filesystem probe silently
+under-reports. ENOENT means "no such command"; any other non-zero exit means the tool ran and said something,
+which is a state to report rather than a failure to hide.
+
+Cached, because `gh auth status` is a network round trip. Refreshable, because whoever pressed "check again"
+has just installed something — and on Windows the answer after that is often still "not found", since a
+running process keeps the PATH it started with. The UI says so in those words rather than leaving it to be
+discovered.
+
+`POST /api/tools/gh/login` · body `{token}` → the re-probed `{tools, checkedAt}`, or **400** with gh's own words.
+
+Signing in by pasting a personal access token, and the **primary** path rather than a fallback. Driving
+`gh auth login`'s device-code flow through the embedded terminal proved unreliable in a way better presentation
+cannot fix: the one-time code has to be copied out of a terminal where `Ctrl+C` is SIGINT, the CLI has to stay
+alive across a browser round trip it does not own, and an interrupted attempt is indistinguishable from a
+rejected one — authorise a moment after the CLI has died and nothing happens, with nothing to say why.
+
+The token goes to `gh auth login --with-token` on **stdin**, never argv, which is visible to anything that can
+list processes. gh stores it in the system credential store. Flight Deck never writes it to `state.json`, never
+logs it, and never sends it back: success returns the re-probed status, and failure returns gh's `detail` (a
+real 401 reads as `error validating token: HTTP 401: Bad credentials`). `tokenUrl` on the status is GitHub's
+token page with gh's stated minimum scopes — `repo`, `read:org`, `gist` — already selected.
+
+Validated before gh sees it: a single line, no whitespace, under 512 characters. A pasted-wrong token otherwise
+comes back as a confusing error about a token that was never sent.
+
+### Review a branch
+
+`GET /api/projects/:id/review` → `{context, last}` · `DELETE` forgets the last one.
+
+`context` says what there is to review before anything is spent finding out: the branch, the base, the merge
+base, commits ahead, changed files, uncommitted count, and the untracked files that no diff against a commit
+contains. `reason` is set when there is nothing to do — clean tree, no base branch, unrelated histories — and
+the button is then refused rather than spending a run to be told nothing.
+
+The base is the project's remembered fast-forward ref first (`origin/dev` here, which no default-branch guess
+would produce), then `origin/HEAD`, then the usual trunk names, and only refs that exist. Measured against the
+**merge base**: comparing against the tip of the base would attribute every commit it has gained since you
+branched to you.
+
+`POST /api/projects/:id/review` → SSE: the agent's own `UiEvent`s, then exactly one
+`{type:"review", review}`.
+
+One ordinary agent run — same spawn, same events, same usage accounting — with three differences. The chat is
+**ephemeral** (a review is not a conversation; twenty in the sidebar would bury the chats). It runs in
+**`plan` mode**, so the reviewer cannot edit the tree it is judging, which is a guarantee from the CLI rather
+than a line in a prompt. And its final message is parsed into findings.
+
+**The diff is not pasted into the prompt.** The agent is given the base sha and runs `git diff` itself: less
+context than a pasted diff, and it can read whole files around anything it is unsure about. A reviewer that
+cannot see the caller of a changed function is guessing.
+
+Findings come back as one fenced JSON block — `{file, line, severity, title, detail}` — and `parseReview` is
+deliberately tolerant: the **last** block wins (a reply often echoes the example first), a nonsense severity
+becomes `medium`, a non-line becomes `null`, backslash paths are normalised, and a finding with no file or no
+title is dropped. A reply it cannot read sets `parsed: false` and keeps `raw`, because an empty findings list
+renders as "nothing to raise" — the one wrong answer this feature can give.
+
+Measured on real runs: this repository's own uncommitted change (12 files, 9 untracked) took **28 turns, 17
+file reads, $2.58** and produced 10 findings; a one-file project took **4 turns, $0.22** and produced 1.
+
+### Open pull requests
+
+`GET /api/pulls` → `{projects: ProjectPulls[]}` — every project, which is what the page uses.
+`GET /api/projects/:id/pulls` → `{repo, pulls, code, reason}` — one project.
+
+Across all projects rather than the selected one: "which of my repositories have something waiting?" is the
+same question the deck answers for uncommitted work, and it is the one an editor cannot answer at all. Scoping
+it to the selection hid three pull requests in another repository until you clicked into it. Bounded at four
+concurrent requests — these are network round trips, not local spawns — and one repository failing costs that
+repository its rows and nothing else.
+
+**Nothing is filtered by target branch.** Only `--state open`; every pull request appears whatever it aims at,
+and `head → base` is on every row so that one aiming somewhere unusual is visible rather than assumed. A test
+pins the absence of `--base`, because adding one later would silently hide work.
+
+The repository is read from the project's own `origin` and parsed into `{host, owner, repo, isGitHub}` —
+`parseRemote` handles https, scp-like `git@host:owner/repo`, `ssh://`, credentials in front, a port, a missing
+`.git`, and a self-hosted install serving from a sub-path. Never a list of every repository the account can
+see: the imported projects are the unit of work, and a repository with no local clone has no diff to review.
+
+Then one read-only `gh pr list -R owner/repo --state open --limit 50 --json …`. `code` carries the state:
+
+| code | what it means |
+|---|---|
+| `OK` | `pulls` is the answer, possibly empty |
+| `NO_REMOTE` / `NOT_GITHUB` | no `origin`, or a host `gh` cannot read — branch review still works, and the page says so |
+| `NO_ACCESS` | GitHub said `Could not resolve to a Repository` |
+| `NOT_SIGNED_IN` / `OFFLINE` / `FAILED` | gh's own words, verbatim |
+
+**`NO_ACCESS` is deliberately ambiguous and the message says so.** GitHub answers identically for "does not
+exist" and "you cannot see it", so that private repositories cannot be enumerated by watching error codes.
+Claiming either one would tell someone their repository does not exist while they are looking at it in another
+tab.
+
+`probe` takes a 16 MB `maxBuffer` for this: fifty pull requests of JSON exceeds the default 1 MB pipe, and
+exceeding it kills the child with ENOBUFS rather than truncating — which would have read as "GitHub returned
+nothing".
+
+Measured live on this machine's own repositories: 3 open on one, 1 on another, 0 on a third, and a
+cross-account repository read fine with the other account's token.
+
+### Review a pull request
+
+`GET /api/projects/:id/pulls/:number` → `{pull, diff, files, body, reason, last}` — two `gh` calls, `view` for
+the facts and `diff` for the patch. The diff is text and goes straight into the existing `DiffView`, so
+word-level highlighting comes for free.
+
+`POST /api/projects/:id/pulls/:number/review` → the same SSE stream as a branch review, ending in one
+`{type:"review", review}` with `pull` set.
+
+**The commit is fetched first, and nothing is checked out.**
+`git fetch origin --force pull/N/head:refs/flightdeck/pr-N` — a ref in a namespace this tool owns. No branch
+switch, no working-tree change; the human decides what the tree contains. Verified on a real pull request
+before any of it was built: the ref appeared, `git diff` against the merge base matched GitHub's own +183/−15,
+and `git status` on the checked-out branch was unchanged.
+
+The ref matters because the reviewer then reads whole files at the pull request's revision with
+`git show <ref>:<path>` — your copy of a file it changed is a different file, and reviewing against the wrong
+one produces confident nonsense. Forced, so a pull request that gains commits reuses its ref rather than
+accumulating one per fetch.
+
+Reviews are remembered per subject: `<projectId>` for a branch, `<projectId>:pr:<number>` for a pull request.
+In memory only.
+
+Measured on a real pull request (7 files, +183/−15): **12 turns, $0.81, 4 findings** — and **zero `Read`
+calls**, because at a ref the agent reads with `git show` instead. That is why progress counts commands as well
+as file reads; a single "files read" counter honestly showed 0 while it worked.
+
 ### Deck (cross-project overview)
 
 `GET /api/overview` → `{projects: ProjectOverview[], readAt}`

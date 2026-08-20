@@ -8,7 +8,7 @@ import { create } from 'zustand';
  * that disagree — and every new view would add another pair of writes to keep in sync. Here the
  * exclusivity is the type.
  */
-export type View = 'workspace' | 'deck' | 'usage' | 'settings';
+export type View = 'workspace' | 'deck' | 'usage' | 'pr' | 'settings';
 
 /**
  * Selection and layout — the only genuinely global state. Server data (projects, chats,

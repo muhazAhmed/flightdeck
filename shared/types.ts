@@ -102,7 +102,18 @@ export type TerminalServerMessage =
       /** True when an already-running shell was reattached rather than a new one started. */
       restored: boolean;
     }
-  | { type: 'output'; data: string }
+  | {
+      type: 'output';
+      data: string;
+      /**
+       * True for the buffered history replayed on reattach.
+       *
+       * The client renders it identically — xterm cannot tell — but it must not be *read* as if it were
+       * happening now. A device-code banner revived from an old login would offer to press Enter into
+       * whatever the shell is running today.
+       */
+      replay?: boolean;
+    }
   | { type: 'exit'; code: number }
   | { type: 'error'; message: string; detail?: string };
 
@@ -488,6 +499,129 @@ export interface ProjectOverview {
   /** git's own words when a repository could not be read. */
   error: string | null;
 }
+
+/** External tools Flight Deck can use but does not ship. One id per tool, so a page names a capability. */
+export type ToolId = 'gh';
+
+/**
+ * Whether an external tool is here, and what to do about it if not.
+ *
+ * `authenticated` is `null` for a tool with no login step, `false` for one that has it and is not logged in —
+ * three states, because installed-but-not-logged-in fails as a permission error mid-request rather than as a
+ * missing command, and telling that user to install what they already have is how a check loses their trust.
+ */
+export interface ToolStatus {
+  id: ToolId;
+  label: string;
+  /** The binary, as it would be typed. */
+  command: string;
+  /** What is lost without it, in one sentence — shown where the feature is, not in a list of dependencies. */
+  purpose: string;
+  docsUrl: string;
+  installed: boolean;
+  version: string | null;
+  path: string | null;
+  authenticated: boolean | null;
+  /** Who is logged in, when the tool reports it. Cosmetic. */
+  account: string | null;
+  /** The install command for THIS machine, or null when no package manager we recognise is present. */
+  installCommand: string | null;
+  /**
+   * The package manager that command belongs to, e.g. `winget`.
+   *
+   * Shown beside the command so the user can see which of their managers it came from — the same tool is
+   * `winget install --id GitHub.cli` on Windows and `sudo pacman -S github-cli` on Arch, and an unexplained
+   * command is one you have to go and verify before you trust it.
+   */
+  installManager: string | null;
+  authCommand: string | null;
+  /**
+   * Where to create a token for this tool, with the scopes it needs already selected.
+   *
+   * Signing in by pasting a token is the primary path: a device-code flow driven through an embedded terminal
+   * has to survive a browser round trip the CLI does not own, and an interrupted one is indistinguishable from
+   * a failed one.
+   */
+  tokenUrl: string | null;
+  /** The tool's own words when a probe failed for a reason other than "not found". Never paraphrased. */
+  detail: string | null;
+}
+
+/** A repository behind a project's `origin`. `host` is kept because an enterprise install is the same shape. */
+export interface RepoRef {
+  host: string;
+  owner: string;
+  repo: string;
+  isGitHub: boolean;
+}
+
+/** One open pull request, as the GitHub CLI reports it. */
+export interface PullRequest {
+  number: number;
+  title: string;
+  author: string;
+  head: string;
+  base: string;
+  isDraft: boolean;
+  /** `APPROVED`, `CHANGES_REQUESTED`, `REVIEW_REQUIRED`, or null when nobody has looked yet. */
+  reviewDecision: string | null;
+  additions: number;
+  deletions: number;
+  changedFiles: number;
+  updatedAt: string;
+  url: string;
+}
+
+/** One thing a review raised. `line` is a line in the file as it stands now, or null. */
+export interface ReviewFinding {
+  file: string;
+  line: number | null;
+  severity: 'high' | 'medium' | 'low';
+  title: string;
+  detail: string;
+}
+
+/**
+ * What there is to review, before anything is spent finding out.
+ *
+ * `reason` is set when there is nothing to do — a clean tree, no base branch, unrelated histories — so the UI
+ * can say which of those it is rather than offering a button that would burn tokens on an empty diff.
+ */
+export interface ReviewContext {
+  branch: string | null;
+  /** The branch this project's pull requests go to, when one could be found. */
+  baseRef: string | null;
+  /** The merge base with `baseRef` — what the change is measured against. */
+  baseSha: string | null;
+  commits: number;
+  changedFiles: number;
+  uncommitted: number;
+  /** New files, which no diff against a commit contains. */
+  untracked: string[];
+  reason: string | null;
+}
+
+/** A finished review. Held in memory only: a review describes the tree as it was. */
+export interface ReviewResult {
+  projectId: string;
+  /** The pull request this reviewed, or null for the project's own branch. */
+  pull: number | null;
+  base: string | null;
+  branch: string | null;
+  startedAt: string;
+  finishedAt: string;
+  summary: string | null;
+  findings: ReviewFinding[];
+  /** The agent's reply verbatim. Kept so a reply we could not parse is still readable. */
+  raw: string;
+  /** False when no findings block could be read — the UI then shows `raw` instead of an empty list. */
+  parsed: boolean;
+  costUsd: number | null;
+  error: string | null;
+}
+
+/** The review stream: the agent's own events, then exactly one `review`. */
+export type ReviewEvent = UiEvent | { type: 'review'; review: ReviewResult };
 
 /** What Flight Deck has written outside your repositories, for the Privacy section. */
 export interface StorageUsage {

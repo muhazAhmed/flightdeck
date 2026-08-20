@@ -1644,3 +1644,269 @@ One honest note: `mergeFf`'s `origin/HEAD` test failed once in a full parallel r
 re-run. It calls `git remote set-head origin -a`, which queries the remote, so contention is the likely
 cause. Recorded rather than fixed blind — a test touched to silence a flake it does not understand is worse
 than a flake.
+
+---
+
+### 2026-08-20 · Optional tools are detected where they are used, never installed
+
+Pull request review needs the GitHub CLI, which this project does not ship. The obvious version — a
+`postinstall` hook that notices `gh` is missing and offers to install it — is a trap, and worth writing down
+so it does not get proposed again.
+
+`npm install` is not a place you can ask a question. It runs non-interactively under `npm ci`, in CI and in
+Docker, so a `y/n` there hangs a build with no output explaining why, and that is the first impression a new
+contributor gets. "Install gh" is also not one command: winget or choco or scoop on Windows, brew on macOS,
+dnf or pacman or a keyring-and-apt-source dance on Linux, several of them privileged. And it would not even
+finish the job — `gh auth login` is a browser flow, so the automated half leaves the user at a prompt anyway.
+
+So: **detect, and hand over the command.** The check happens when a feature needs the tool, which is the one
+moment the user cares; the sidebar button stays enabled and the page explains itself, because a disabled
+button with a tooltip is a dead end. The install button types the official command into the terminal the user
+already has — visible, stoppable, consented to by the press — rather than spawning anything privileged behind
+their back. `apt` is deliberately not offered: a three-command privileged sequence typed by a button is not
+something anyone should accept on trust, so those machines get the documentation instead.
+
+Installed and signed-in are separate states, because they fail differently: `gh` present but not logged in
+fails as a permission error mid-request, and telling that user to install what they already have is how a
+check loses their trust. `authenticated` is therefore three-valued — null when the tool is absent.
+
+**The bug worth remembering.** The first version resolved commands with `existsSync` over `PATH`, exactly as
+`shells.ts` does, and reported that this machine has no package manager — while `winget --version` printed
+`v1.29.280`. `winget` lives at `%LOCALAPPDATA%/Microsoft/WindowsApps/winget.exe`, an **app execution alias**:
+a zero-length reparse point that `stat` cannot resolve. Measured: `existsSync` false, `statSync` ENOENT,
+`execFile` fine. Detection now spawns the command and lets the OS resolve it, treating ENOENT as "not
+installed" and any other non-zero exit as an answer. Anything Store-installed has that shape, so this is not a
+`winget` quirk — **`shells.ts` has the same blind spot for a Store-installed `wsl.exe`**, which is recorded
+here rather than fixed blind, since the WSL detection it feeds is verified working on this machine.
+
+And the failure this feature is most likely to produce is stated in the UI rather than left to be found: a
+tool installed a minute ago is invisible to a server that started before it, because a process keeps the PATH
+it started with — and a shell it spawns inherits that same environment. "Check again" will keep saying "not
+found" until Flight Deck restarts, so the page says exactly that after the first re-check.
+
+**Follow-up, same day: the manager list is per OS.** Asked whether one `winget` command could possibly serve
+Windows, macOS and Ubuntu — it could not, and the answer exposed a real hole. The code already chose by
+*manager* rather than by OS, which is the stronger test (a Mac without Homebrew gets no command instead of a
+broken one), but it probed a single global list, so the first manager found won wherever it came from. MSYS2 and
+Git Bash put `pacman` on PATH on Windows: that machine, without winget, would have been told
+`sudo pacman -S github-cli` — no `sudo` to run it, in a package set that does not contain that package.
+
+Now there is a table per platform, and only that platform's is probed. Native managers sit above Homebrew on
+Linux because their updates arrive with the system's; `brew` never carries `sudo`, since it installs into its
+own prefix and refuses to be run privileged; Arch and Alpine get `github-cli` rather than `gh`, which is what
+the package is actually called there. An unrecognised platform gets no command at all rather than a guess.
+
+The UI now names the manager beside the command — "Using winget, which is what this machine has" — because an
+unexplained command is one the reader has to go and verify before trusting it, and that is the whole thing this
+feature was trying to save them.
+
+**Second follow-up: a page that offers a command hosts the terminal that runs it.** Reported immediately from
+use — pressing "install" on the PR page switched to the workspace view and ran winget in the last project's
+shell. The install worked; the feature still felt broken, because the reader was thrown out of the page they
+were on into a project they had not asked for.
+
+The terminal is now built once in `AppShell` and handed to whichever view is showing, so the PR page carries it
+at the bottom. Same component, same session — a shell belongs to its project and outlives the panel, so nothing
+is duplicated by rendering it in two places. Only one is ever mounted, since these are whole-pane views.
+
+It renders in a `plain` variant there: no build trigger, no fast-forward. A terminal opened to install a
+missing tool has no business offering to push an empty commit or move a branch pointer while it does. Clear and
+Stop stay, because they are about the shell rather than the repository.
+
+The general rule, written into `ToolGate`: nothing in the gate navigates. A page that offers to run a command
+must host a terminal, and `runInTerminal` opens it wherever that page renders it.
+
+**Third follow-up: a one-time code is lifted out of the terminal.** `gh auth login` printed `8FA9-3FF2` and
+waited, and the code could not be copied — `Ctrl+C` in a terminal is SIGINT, so reaching for it kills the login
+you are trying to finish. Reported from exactly that attempt.
+
+So terminal output is scanned for a device-code prompt and the code is offered as a banner above the shell:
+`Copy`, and `Copy and open sign-in` which also presses Enter — which is what the prompt is waiting for, and lets
+the CLI open the browser through the OS handler rather than through a popup this page might not be allowed to
+make. The URL is captured from the output rather than hardcoded, so an enterprise host sends you to its own, and
+the link is the fallback for a session where the CLI cannot open anything (headless, or WSL with no display).
+
+Three constraints shaped it. The clipboard write happens on a real button press, because a write triggered by a
+pattern match has no user gesture behind it and browsers refuse those — and a toast claiming "copied" when
+nothing was copied is worse than no toast, so both outcomes are reported. ANSI stripping is not optional: gh
+prints the code bold, so a match against raw PTY bytes finds `8FA9-` and stops at the escape byte. And the scan
+obeys the no-`setState`-per-chunk rule — the tail lives in a ref, the scan sits behind a cheap prefilter, and
+React only hears about a code that differs from the one it has, which happens once per login.
+
+The phrase "one-time code" is required rather than a bare `code:`; the first test fixture written for it used
+the loose form and had to be corrected, because `npm error code ELIFECYCLE` would otherwise raise a banner in
+the middle of a build.
+
+### 2026-08-20 · Pasting a token beats driving a device-code flow through a terminal
+
+The banner from the previous entry was not enough, and the report was blunt: signed in through the browser, came
+back, still "not signed in"; restarted the app, tried again, and this time the banner had no link at all. Both
+symptoms were real and only one of them was a bug.
+
+The missing link was: gh prints the code and the `Press Enter to open <url>` line in separate PTY chunks, so the
+first match had no URL — and the hook only replaced its state when the *code* changed, so the first answer won
+permanently. It now also accepts the same code with a URL it did not have.
+
+The failed sign-in was not a bug, and that is the point. The terminal showed `^C`: gh had been interrupted, so
+it never polled GitHub, so authorising in the browser had nothing left to talk to. **That failure mode is
+structural.** A device-code flow needs a long-lived interactive process, a code copied out of a terminal where
+`Ctrl+C` means interrupt rather than copy, and a browser round trip the CLI does not own — and when any of it
+goes wrong, the screen looks exactly the same as when it went right. No amount of presentation fixes a flow
+whose success and failure are indistinguishable.
+
+So the primary path is now a token: a link to GitHub's token page with gh's stated minimum scopes prefilled
+(`repo`, `read:org`, `gist`), a password field, one button. It has no interrupt to survive, no clipboard to
+fight, and it works over a connection where nothing can open a browser.
+
+Handing a token to a local web app deserves care, so: **stdin, never argv** — argv is visible to anything that
+can list processes. `gh` stores it in the system credential store, and Flight Deck keeps no copy anywhere: not
+in `state.json`, not in a log, not in the response. Validated as a single line under 512 characters before gh
+sees it, because a pasted-wrong token otherwise returns a confusing error about a token that was never sent. A
+failure returns gh's own words, verbatim — a real 401 reads `error validating token: HTTP 401: Bad credentials`,
+which is a sentence you can act on.
+
+The terminal route is kept, demoted to "or run `gh auth login` in the terminal", for anyone who prefers the
+CLI's own flow. The device-code banner stays too: it is generic, it is tested, and the next CLI to print a code
+in that terminal will be caught by it.
+
+### 2026-08-20 · Review is local, and it reviewed itself first
+
+The valuable half of "AI PR review" needs no GitHub at all. The moment a review is worth having is *before* the
+pull request is raised, while acting on it is free — and at that moment the change may not be pushed, may not be
+committed, and the repository may not be on GitHub. So branch review is git plus the agent, and it sits outside
+the `gh` gate: it works for every imported project, including one whose remote is elsewhere and one with none.
+
+Three choices worth keeping.
+
+**The diff is not pasted into the prompt.** The agent gets the base sha and runs `git diff` itself, which costs
+less context than a pasted patch and lets it read whole files around anything it is unsure about. A reviewer
+that cannot see the caller of a changed function is guessing, and guesses are what teach people to ignore a
+reviewer. Untracked files are named explicitly, because no diff against a commit contains them — and on the
+first run they were nine of the twelve things worth reading.
+
+**The base is the project's fast-forward ref, measured at the merge base.** Here that is `origin/dev`, which no
+default-branch guess would produce: pull requests go to dev and main only ever fast-forwards. And a merge base
+rather than the tip, or every commit the base has gained since you branched is attributed to you.
+
+**Findings are a schema, not prose.** Prose is skimmed once and never reopened; a claim with a file and a line
+is one you can go and check. The parser is deliberately tolerant — last block wins, since a reply often echoes
+the example first; a nonsense severity becomes medium; a non-line becomes null — and a reply it cannot read
+keeps `raw` and sets `parsed: false`, because an empty findings list renders as "nothing to raise", which is
+the one wrong answer this feature can give.
+
+`plan` mode is the other guarantee: the reviewer cannot edit the tree it is judging, from the CLI rather than
+from a prompt asking it nicely.
+
+**The first run reviewed this repository's own uncommitted diff — the PR page, the tool gate, the device-code
+banner and the review endpoint itself — and found ten things, of which eight were real.** Three were in the
+review feature's own code, and every one is now fixed:
+
+- The review SSE wrote to the socket after the client had gone, which the chat route has always guarded and
+  this one did not; it also dropped `rate_limit` and ignored the `maxTurns` cap.
+- `parseReview` kept findings with no file, contrary to the comment sitting directly above it.
+- The device-code matcher took the *first* code in the buffer rather than the last, so a retried login offered
+  the dead one — and the test named "only the most recent code is read" asserted the opposite, agreeing with
+  the bug.
+- The `/code/i` prefilter meant `Press Enter to open <url>` never reached the matcher, so the previous day's
+  fix for the missing link was dead code that could never run.
+- A banner raised from replayed scrollback would have offered to press Enter into whatever the shell was running
+  today; history is now flagged `replay` and rendered without being read.
+- A failed `/api/tools` request left the PR page as a skeleton that never resolved, with only a faded toast to
+  explain it.
+- `scoop` could never be detected: Node refuses to spawn a `.cmd` without a shell, and scoop ships as
+  `scoop.cmd`. Existence checks for package managers now go through `where`/`which`, which finds shims and app
+  execution aliases both; running a tool ourselves still means spawning it.
+- One test asserted the presence of the very strings it claimed to forbid, and could not fail for its stated
+  reason.
+
+That is the strongest argument for the feature I could have produced deliberately, and it is why the cost is
+worth stating plainly: **$2.58 for the twelve-file review, $0.22 for a one-file one.** It is not free, it is
+not automatic, and it found eight real defects in code written an hour earlier by the same model that reviewed
+it.
+
+Next, in order: list a project's open pull requests (per project, from its own remote — never a browser of every
+repo on the account), review one by fetching it into `refs/flightdeck/pr-N` so no branch is switched, and only
+then line comments — selected by hand, previewed, and posted as a single pending review nobody else sees until
+you submit it.
+
+**Same day: the PR list, and why the page invited a wrong reading.** Reported as a bug — a repository with three
+open pull requests showed "Nothing differs from origin/dev". Nothing was broken: that sentence came from the
+branch reviewer, which looks at the *local* checkout, and the local checkout was clean. The three pull requests
+are other people's branches on GitHub, which the branch reviewer never looks at.
+
+But a page titled "Pull requests" whose only populated card talks about a local branch will be read that way
+every time, and "listing them is the next piece" is a poor substitute for listing them. So they are listed now.
+
+The repository comes from the project's own `origin`, parsed for every shape git accepts. Not a browser of every
+repository the account can see: the imported projects are the unit of work, and a repository with no local clone
+has no diff to review anyway. One read-only `gh pr list`; nothing here merges, closes, comments or edits.
+
+Two details worth keeping. Every failure is a state that explains itself rather than an empty array — an empty
+list and "this account cannot see that repository" look identical if you only render the array, and only one of
+them has a fix. And `NO_ACCESS` says both possibilities out loud, because **GitHub answers
+`Could not resolve to a Repository` for "does not exist" and "you cannot see it" alike**, deliberately, so that
+private repositories cannot be enumerated. Guessing at one of those would tell someone their repository does not
+exist while they have it open in another tab.
+
+The `maxBuffer` bump is not cosmetic: fifty pull requests of JSON exceeds Node's default 1 MB pipe buffer, and
+exceeding it kills the child with ENOBUFS rather than truncating — a failure that would have read as "GitHub
+returned nothing".
+
+**A note on the portability rule, which earned its place again.** The remote-parsing fixtures have to contain
+clone URLs, and the rule rejected them. It then rejected the comment written to explain them, for naming a
+scheme. Both refusals were right, and the answer was to compose the URLs from named host constants and allow
+only the *composed* form — a URL built from a variable cannot hardcode a host by definition. Widening the rule
+to admit a real host would have been the easy fix and the wrong one.
+
+**Immediately after: the list is cross-project, and never filtered by branch.** Two reports in one message, and
+they landed differently.
+
+"Why limit to the dev branch?" — it never was. Only `--state open` is passed, so every open pull request appears
+whatever it targets. Every row happening to read `→ dev` is what created the impression, because in these
+repositories everything does target dev. Nothing to change in the code, but a test now pins the absence of
+`--base` and `--search`: adding one later would silently hide work, and the impression shows how invisible that
+would be.
+
+"I can see only realty PRs" — that one was real. The list followed the selected project, so three pull requests
+in another repository were invisible until you clicked into it. That is the same mistake the deck exists to
+avoid: an editor knows about one repository, and the whole reason this page is not a browser tab is that it can
+know about all of them. It is now one `/api/pulls` call across every project, grouped, four concurrent at most,
+with one repository's failure costing only its own rows.
+
+Ordering: the project you are in stays top, then whatever moved most recently, then unreadable repositories,
+then quiet ones. Quiet ones are still listed — "nothing open" for a repository is an answer, and a list that
+silently drops it invites exactly the question this change came from.
+
+### 2026-08-20 · A list and a detail pane, and reviewing someone else's pull request
+
+"Everything is spammed in one card, very inconvenience" — fair, and the fix was structural rather than cosmetic.
+Branch review, then five projects' pull requests, then a diff, then findings, all in one scroll: four pull
+requests were enough to make it unusable, and a review of a 600-line change has nowhere to be.
+
+So the page is a list and a detail pane, resizable like every other split here. That is where mail clients and
+code-review tools all end up, for the reason that applies here too: the list has to stay scannable *while* you
+read one thing in full. Branch review is the first row, so the ungated local half is the default view rather
+than something to find.
+
+**Reviewing a pull request fetches its commit and checks nothing out.**
+`git fetch origin --force pull/N/head:refs/flightdeck/pr-N`, a ref in a namespace this tool owns. Verified on a
+real pull request before any of it was built into anything: the ref appeared, the diff against the merge base
+matched GitHub's own +183/−15, `git status` on the checked-out branch was unchanged. `gh pr checkout` would have
+been one command and would have moved someone's working tree, which is the one thing this project does not do.
+
+The ref is what makes the review worth having: the agent reads whole files at the pull request's revision with
+`git show <ref>:<path>`. Your copy of a file it changed is a *different file*, and a reviewer reading the wrong
+one produces confident nonsense. Forced, so a pull request that gains commits reuses its ref.
+
+The diff needed no new code at all — `gh pr diff` returns text, and `DiffView` takes text.
+
+**First real run, on a live pull request** (7 files, +183/−15): 12 turns, $0.81, four findings, the strongest of
+which was hooks called after an early return — a real React bug, in code neither of us wrote. It also exposed a
+UI lie: **zero `Read` calls**, because at a ref it reads with `git show` instead, so "files read" honestly said
+0 while it worked through twelve commands. Progress now counts both.
+
+Still nothing that writes: no merge, no close, no comment. Posting findings back is the last piece and stays
+last — it is an outward-facing write to a repository colleagues read, made from a reviewer that is sometimes
+confidently wrong, and it will be selected by hand, previewed, and posted as a single pending review nobody else
+sees until it is submitted.
+

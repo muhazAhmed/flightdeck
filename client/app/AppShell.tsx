@@ -9,6 +9,7 @@ import { ChatPanel } from '@/features/chat/ChatPanel';
 import { ImportSessionDialog } from '@/features/chat/ImportSessionDialog';
 import { CommandPalette } from '@/features/command-palette/CommandPalette';
 import { DeckPage } from '@/features/deck/DeckPage';
+import { PrPage } from '@/features/pr/PrPage';
 import { UsagePage } from '@/features/usage/UsagePage';
 import { AddProjectDialog } from '@/features/projects/AddProjectDialog';
 import { ProjectSidebar } from '@/features/projects/ProjectSidebar';
@@ -192,6 +193,35 @@ export function AppShell() {
     [selectedChatId]
   );
 
+  /**
+   * The terminal, wherever it is being shown.
+   *
+   * Built once here because two views need the same one: the workspace column, and any whole-pane page that
+   * offers to run a command. Nothing is duplicated by that — a shell belongs to its project and outlives the
+   * panel, so the same session appears in either place.
+   */
+  const terminalNode = (variant: 'workspace' | 'plain') => (
+    <Suspense
+      fallback={
+        <div className="flex h-full items-center justify-center border-t border-border-default bg-(--bg-base) text-[12.5px] text-text-muted">
+          Loading terminal…
+        </div>
+      }
+    >
+      <TerminalDrawer
+        project={project}
+        variant={variant}
+        shellId={settings.terminalShell}
+        fontSize={settings.terminalFontSize}
+        cursorBlink={settings.terminalCursorBlink}
+        onShellChange={(id) => void updateSettings({ terminalShell: id })}
+        onCommitted={bumpGit}
+        onShellActivity={onShellActivity}
+        onClose={() => setTerminalOpen(false)}
+      />
+    </Suspense>
+  );
+
   useHotkey('k', () => setPaletteOpen(true), { inFields: true });
   useHotkey(',', () => setView('settings'), { inFields: true });
   // Esc leaves settings. No modifier, and it must work while a field has focus.
@@ -282,6 +312,17 @@ export function AppShell() {
                 onClose={() => setView('workspace')}
               />
             </Panel>
+          ) : view === 'pr' ? (
+            <Panel id="pr" minSize="30">
+              {/* The terminal comes with the page: a command offered here has to run here, or pressing the
+                  button throws you back to the workspace and into the last project you had open. */}
+              <PrPage
+                project={project}
+                projects={projects}
+                terminal={terminalOpen ? terminalNode('plain') : null}
+                onClose={() => setView('workspace')}
+              />
+            </Panel>
           ) : view === 'usage' ? (
             <Panel id="usage" minSize="30">
               <UsagePage
@@ -323,24 +364,7 @@ export function AppShell() {
                 <>
                   <VerticalHandle />
                   <Panel id="terminal" defaultSize="34" minSize="15" maxSize="70">
-                    <Suspense
-                      fallback={
-                        <div className="flex h-full items-center justify-center border-t border-border-default bg-(--bg-base) text-[12.5px] text-text-muted">
-                          Loading terminal…
-                        </div>
-                      }
-                    >
-                      <TerminalDrawer
-                        project={project}
-                        shellId={settings.terminalShell}
-                        fontSize={settings.terminalFontSize}
-                        cursorBlink={settings.terminalCursorBlink}
-                        onShellChange={(id) => void updateSettings({ terminalShell: id })}
-                        onCommitted={bumpGit}
-                        onShellActivity={onShellActivity}
-                        onClose={() => setTerminalOpen(false)}
-                      />
-                    </Suspense>
+                    {terminalNode('workspace')}
                   </Panel>
                 </>
               ) : null}

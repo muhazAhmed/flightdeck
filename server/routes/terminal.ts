@@ -112,7 +112,9 @@ export async function terminalRoutes(app: FastifyInstance): Promise<void> {
 
       // Replayed as ordinary output, so the client needs no special path for it: xterm renders escape codes the
       // same whether they arrive live or from a buffer.
-      if (attached.history.length > 0) send({ type: 'output', data: attached.history });
+      // Flagged as a replay: it looks identical in the terminal, but the client must not act on it. See the
+      // `replay` note in shared/types.ts.
+      if (attached.history.length > 0) send({ type: 'output', data: attached.history, replay: true });
 
       socket.on('message', (raw: Buffer | string) => {
         let message: TerminalClientMessage;

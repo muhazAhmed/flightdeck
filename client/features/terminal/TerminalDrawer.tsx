@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Eraser, Rocket, Square, X } from 'lucide-react';
+import { Copy, Eraser, ExternalLink, KeyRound, Rocket, Square, X } from 'lucide-react';
+import { toast } from 'sonner';
 import type { Project } from '@shared/types';
+import { Button } from '@/shared/ui/Button';
 import { ConfirmDialog, type ConfirmRequest } from '@/shared/ui/ConfirmDialog';
 import { EmptyState } from '@/shared/ui/EmptyState';
 import { IconButton } from '@/shared/ui/IconButton';
@@ -13,6 +15,13 @@ import { useTerminal } from './useTerminal';
 
 interface TerminalDrawerProps {
   project: Project | null;
+  /**
+   * `workspace` carries the project's own git actions; `plain` is the same shell without them.
+   *
+   * A page that opens a terminal to run one command — installing a missing tool, say — has no business
+   * offering to trigger a build or move a branch pointer while it does. Same session either way.
+   */
+  variant?: 'workspace' | 'plain';
   /** Chosen shell profile id from settings; empty means "whatever the server detects". */
   shellId: string;
   fontSize: number;
@@ -43,6 +52,7 @@ interface TerminalDrawerProps {
  */
 export function TerminalDrawer({
   project,
+  variant = 'workspace',
   shellId,
   fontSize,
   cursorBlink,
@@ -52,7 +62,7 @@ export function TerminalDrawer({
   onClose
 }: TerminalDrawerProps) {
   const { profiles, selectedId } = useShellProfiles(shellId);
-  const { containerRef, status, focus, clear, stop } = useTerminal(
+  const { containerRef, status, focus, clear, stop, send, deviceCode, dismissDeviceCode } = useTerminal(
     project?.id ?? null,
     selectedId,
     { fontSize, cursorBlink },
@@ -110,12 +120,13 @@ export function TerminalDrawer({
         ) : null}
 
         <span className="ml-auto flex shrink-0 items-center gap-1.5">
-          <FastForwardButton project={project} onMerged={onCommitted} />
+          {variant === 'workspace' ? <FastForwardButton project={project} onMerged={onCommitted} /> : null}
         </span>
 
         <span className="flex shrink-0 items-center gap-0.5">
           {/* Pushes, so it always asks first — and the dialog shows the two commands verbatim rather
               than describing them. */}
+          {variant === 'workspace' ? (
           <IconButton
             label={running ? 'Triggering a build…' : 'Trigger a build — empty commit, then push'}
             icon={<Rocket size={13} className={running ? 'text-text-muted' : 'text-accent-bright'} />}
@@ -131,6 +142,7 @@ export function TerminalDrawer({
               })
             }
           />
+          ) : null}
           <IconButton label="Clear the terminal" icon={<Eraser size={13} />} onClick={clear} />
           {/* Closing the drawer leaves the shell running, so stopping it has to be its own action. */}
           <IconButton
@@ -153,11 +165,96 @@ export function TerminalDrawer({
         </span>
       </header>
 
+      {deviceCode ? (
+        <DeviceCodeBanner
+          code={deviceCode.code}
+          url={deviceCode.url}
+          onContinue={() => {
+            // What the prompt is actually waiting for. gh then opens the browser itself, using the OS handler,
+            // which works where a popup from this page might not.
+            send(String.fromCharCode(13));
+            focus();
+          }}
+          onDismiss={dismissDeviceCode}
+        />
+      ) : null}
+
       {/* xterm measures its container, so this element must have a real size before it fits. The
           hook re-fits on every resize, including the drag handle above it. */}
       <div ref={containerRef} onClick={focus} className="min-h-0 flex-1 px-2 py-1" />
 
       <ConfirmDialog request={confirm} onClose={() => setConfirm(null)} />
     </section>
+  );
+}
+
+/**
+ * A one-time code, out of the terminal and into a button.
+ *
+ * REPORTED FROM USE: `gh auth login` prints a code and waits, and copying it out of a terminal is the one
+ * thing a terminal makes hard — `Ctrl+C` is SIGINT, so the obvious attempt kills the flow you are trying to
+ * finish. The code was on screen and unreachable.
+ *
+ * Copy is a real button press, which is what the clipboard API requires: a write attempted from the pattern
+ * match would be a write with no user gesture behind it, and browsers refuse those — a toast claiming "copied"
+ * when nothing was copied is worse than no toast.
+ *
+ * Continue presses Enter for you, because that is what the prompt is waiting for, and lets the CLI open the
+ * browser through the OS handler. The link is a fallback for when it cannot — a headless session, or WSL
+ * without an X server.
+ */
+function DeviceCodeBanner({
+  code,
+  url,
+  onContinue,
+  onDismiss
+}: {
+  code: string;
+  url: string | null;
+  onContinue: () => void;
+  onDismiss: () => void;
+}) {
+  const copy = () => {
+    void navigator.clipboard.writeText(code).then(
+      () => toast.success('Code copied', { description: code }),
+      () => toast.error('Could not reach the clipboard', { description: `The code is ${code}` })
+    );
+  };
+
+  return (
+    <div className="flex shrink-0 flex-wrap items-center gap-2 border-t border-border-subtle bg-accent-subtle px-3 py-2">
+      <KeyRound size={13} className="shrink-0 text-accent-bright" />
+      <span className="text-[12.5px] text-text-secondary">One-time code</span>
+      {/* Selectable as well as copyable: a code you can read is a code you can type into your phone. */}
+      <code className="rounded border border-border-default bg-surface-2 px-2 py-0.5 font-mono text-[13px] tracking-wider select-all">
+        {code}
+      </code>
+      <Button size="sm" variant="secondary" onClick={copy}>
+        <Copy size={12} />
+        Copy
+      </Button>
+      <Button
+        size="sm"
+        variant="primary"
+        onClick={() => {
+          copy();
+          onContinue();
+        }}
+      >
+        Copy and open sign-in
+      </Button>
+      {url ? (
+        <a
+          href={url}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex items-center gap-1 text-[12px] text-text-muted hover:text-text-primary"
+        >
+          <ExternalLink size={11} />
+          {url.replace(/^https?:\/\//, '')}
+        </a>
+      ) : null}
+      <IconButton className="ml-auto" label="Dismiss" icon={<X size={13} />} onClick={onDismiss} />
+    </div>
   );
 }

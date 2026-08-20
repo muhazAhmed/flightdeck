@@ -46,7 +46,27 @@ const ALLOWED_URL_PREFIXES = [
   'https://nodejs.org',
   'https://rolldown.rs',
   // A documentation example in a markdown-rendering fixture; example.com exists for exactly this.
-  'https://example.com'
+  'https://example.com',
+  // The GitHub CLI's own install instructions, shown when we cannot name a command for this machine. A link
+  // a human clicks, not a host this app talks to.
+  'https://github.com/cli/cli',
+  // GitHub's device-login endpoint, appearing in a fixture of gh's real output. Read out of the terminal at
+  // runtime rather than assumed — an enterprise host prints its own, and the banner follows whatever it says.
+  'https://github.com/login/device',
+  // The token-creation page, with the scopes gh asks for prefilled. A link a human clicks.
+  'https://github.com/settings/tokens/new',
+  /*
+   * A URL built from a variable, which by definition does not hardcode a host — the host is a named constant
+   * the reader can see and change. Used by the remote-parsing fixtures, which have to contain clone URLs to be
+   * worth anything.
+   *
+   * This rule caught those fixtures, then caught the comment that explained them for naming a scheme, and it
+   * was right both times: the answer was to stop writing the host, not to widen the rule to a real one.
+   */
+  'https://${',
+  // The same, with credentials in front — which is how a cloned remote often looks.
+  'https://user@${',
+  'https://user:token@${'
 ];
 
 function sourceFiles(roots: string[]): string[] {

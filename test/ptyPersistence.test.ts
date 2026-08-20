@@ -273,7 +273,12 @@ test('the socket detaches on close and only an explicit stop disposes', () => {
   // Keyed by project, so the same project always gets the same shell.
   assert.match(route, /const key = project\.id/);
   // And the buffered output is replayed as ordinary output, so the client needs no special path.
-  assert.match(route, /if \(attached\.history\.length > 0\) send\(\{ type: 'output', data: attached\.history \}\)/);
+  // Flagged as a replay so the client renders it without acting on it: a device-code banner raised from an
+  // hour-old login would offer to press Enter into whatever the shell is running now.
+  assert.match(
+    route,
+    /if \(attached\.history\.length > 0\) send\(\{ type: 'output', data: attached\.history, replay: true \}\)/
+  );
 });
 
 test('the drawer says the shell was already running, and offers a stop', () => {
