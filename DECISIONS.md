@@ -1944,3 +1944,45 @@ fill and mark in both themes. It immediately found `--danger` at **4.27:1 on `--
 
 Nothing about the semantics moved. Green is added, red is removed, and the accent is still neither.
 
+### 2026-08-21 · One wrong character in a directory name broke three features
+
+"When I open a new chat and refresh the page, that prev chat won't be visible." The chat was there. Its
+transcript was there. The directory name we computed for it was not.
+
+Claude Code files transcripts under `~/.claude/projects/<encoded cwd>/<sessionId>.jsonl`, and the encoding
+replaces **every character that is not a letter or a digit** with a dash. We replaced only `[\/:]` — so any
+project whose path contains an underscore resolved to a directory that does not exist. Four of the five projects
+on this machine have one. The transcript was on disk the whole time, one character away.
+
+The same wrong path is used by three features, and all three were broken in ways that each looked like their own
+separate bug:
+
+- **History replay** returned an empty array, so a refreshed chat showed the empty state and its conversation
+  appeared lost.
+- **The import dialog** said "no un-imported sessions for this folder" while four sat in the directory it failed
+  to find — reported in the same message, as a second symptom of what turned out to be one cause.
+- **Per-project usage from transcripts** silently under-reported, which is the worst of the three: it produced a
+  number that looked plausible.
+
+Fixed, and then made hard to break again in three layers, because this encoding is *observed rather than
+documented* and will change again:
+
+1. `transcriptEncode` now matches the CLI, and is tested against the shapes that actually occur — underscores,
+   dots, spaces, and a drive prefix that must stay two dashes rather than being collapsed to one.
+2. `resolveTranscriptDir` falls back to a case-insensitive match, because the CLI records `E--` or `e--`
+   depending on how the shell spelled the drive. Windows resolves either for free; Linux would not, and this
+   project has to run there.
+3. `findTranscript` falls back to **scanning** for `<sessionId>.jsonl`. A session id is ours and unique, so the
+   file is the transcript wherever the CLI decided to file it. Costs one readdir on a miss and nothing at all in
+   the common case.
+
+A test also asserts that all three readers go through the resolver, so a fourth reader cannot quietly compute the
+path itself.
+
+Verified live at each step: history 0 → 144 events, the import dialog 0 → 4 sessions, and transcript usage now
+reporting for five projects rather than two.
+
+The lesson worth keeping: the original comment on that function warned in detail about the *other* way to get
+this wrong (collapsing runs) while being wrong itself. A comment explaining a derived format is not evidence
+that the format was checked — only a fixture from a real machine is.
+

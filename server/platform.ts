@@ -7,6 +7,7 @@
  * machine. If you find yourself typing a path literal outside this file, put it here
  * instead — or better, in state, where the user owns it.
  */
+import { existsSync, readdirSync } from 'node:fs';
 import { homedir, platform } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -57,20 +58,54 @@ export function defaultBrowseDir(): string {
   return homedir();
 }
 
+/** Where the CLI keeps every project's transcripts. Scanned when an encoded name misses. */
+export function projectsRoot(): string {
+  return join(homedir(), '.claude', 'projects');
+}
+
 /**
- * How Claude Code encodes a working directory into a transcript folder name, e.g.
- * `C:\repos\app` becomes `C--repos-app`. Used to locate a session's
- * transcript for history replay (Phase 2).
+ * How Claude Code encodes a working directory into a transcript folder name.
  *
- * Derived from the observed format rather than documented, so treat a miss as "no
- * history available" and never as an error.
+ * EVERY character that is not a letter or a digit becomes its own dash, including separators. So
+ * A Windows path of `C:` then `\repos\my_app` becomes `C--repos-my-app`: the colon and the backslash are two
+ * characters and therefore two dashes, and the underscore is a third.
+ *
+ * THE BUG THIS FIXES, reported from use: open a chat, refresh the page, and the conversation was gone. This
+ * replaced only `[\/:]`, so a path containing an underscore — extremely ordinary — resolved to a directory
+ * that does not exist. The transcript was sitting on disk the whole time under a name one character different.
+ * Collapsing runs (a `+` in the pattern) is the other way to get this wrong: it yields `C-repos-app`, which
+ * also exists nowhere.
+ *
+ * Derived from observation rather than documentation, which is exactly why `findTranscript` in transcript.ts
+ * falls back to a scan: the encoding can change again, and a session id is unambiguous.
  */
+export function transcriptEncode(cwd: string): string {
+  return cwd.replace(/[^A-Za-z0-9]/g, '-');
+}
+
 export function transcriptDirFor(cwd: string): string {
-  // EVERY separator becomes its own dash. The drive prefix in a Windows path is two
-  // characters (colon then backslash) and therefore two dashes:
-  // `C:\repos\app` -> `C--repos-app`. Collapsing runs (a `+` in the pattern)
-  // yields `C-repos-app`, a directory that exists nowhere, and history replay then
-  // silently finds nothing at all.
-  const encoded = cwd.replace(/[\\/:]/g, '-');
-  return join(homedir(), '.claude', 'projects', encoded);
+  return join(projectsRoot(), transcriptEncode(cwd));
+}
+
+/**
+ * The same directory, found on a filesystem that cares about case.
+ *
+ * Windows resolves `E--repo` to a directory named `e--repo` for free, so the encoded name is enough there —
+ * and the CLI does record both, depending on whether the shell handed it `E:\` or `e:\`. On Linux and macOS it
+ * is not enough, so a miss falls back to a case-insensitive match among the project directories.
+ *
+ * Returns the encoded path when nothing matches: a caller wants somewhere to report as empty, not a null.
+ */
+export function resolveTranscriptDir(cwd: string): string {
+  const encoded = transcriptDirFor(cwd);
+  if (existsSync(encoded)) return encoded;
+  const wanted = transcriptEncode(cwd).toLowerCase();
+  try {
+    for (const entry of readdirSync(projectsRoot(), { withFileTypes: true })) {
+      if (entry.isDirectory() && entry.name.toLowerCase() === wanted) return join(projectsRoot(), entry.name);
+    }
+  } catch {
+    // No projects directory: the CLI has never run on this machine, which is not an error.
+  }
+  return encoded;
 }

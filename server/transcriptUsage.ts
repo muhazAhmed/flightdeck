@@ -14,7 +14,7 @@
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import type { TranscriptSession } from '@shared/types';
-import { transcriptDirFor } from './platform.js';
+import { resolveTranscriptDir } from './platform.js';
 
 /**
  * Transcripts are large — the session that prompted this feature is 15 MB — so lines are prefiltered
@@ -114,7 +114,7 @@ export function summariseTranscript(path: string, sessionId: string): Transcript
  * terminal, an editor — is found as long as it ran in that folder.
  */
 export function sessionsForProject(projectPath: string): TranscriptSession[] {
-  const dir = transcriptDirFor(projectPath);
+  const dir = resolveTranscriptDir(projectPath);
   if (!existsSync(dir)) return [];
 
   let names: string[];

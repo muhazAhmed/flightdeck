@@ -641,6 +641,24 @@ Measured on a real pull request (7 files, +183/−15): **12 turns, $0.81, 4 find
 calls**, because at a ref the agent reads with `git show` instead. That is why progress counts commands as well
 as file reads; a single "files read" counter honestly showed 0 while it worked.
 
+### Where transcripts live
+
+`~/.claude/projects/<encoded cwd>/<sessionId>.jsonl`, where the encoding replaces **every character that is not
+a letter or a digit** with a dash — separators, underscores, dots and spaces alike. `C:` then a path of `repos` and `my_app`
+becomes `C--repos-my-app`: three characters, three dashes, nothing collapsed.
+
+Read by history replay, the session-import dialog and per-project usage. All three go through
+`resolveTranscriptDir` / `findTranscript`, and a test asserts none of them computes the path itself — one wrong
+directory name broke all three at once, and each looked like a separate bug.
+
+Two fallbacks, because this format is observed rather than documented:
+
+- **Case.** The CLI records `E--…` or `e--…` depending on how the shell spelled the drive letter. Windows
+  resolves either; a case-sensitive filesystem does not, so a miss retries case-insensitively.
+- **Anything else.** `findTranscript` scans the project directories for `<sessionId>.jsonl`. A session id is
+  ours and unique, so the file is the transcript wherever it was filed. One readdir on a miss, nothing in the
+  common case.
+
 ### Deck (cross-project overview)
 
 `GET /api/overview` → `{projects: ProjectOverview[], readAt}`

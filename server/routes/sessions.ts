@@ -19,7 +19,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import type { FastifyInstance } from 'fastify';
 import type { Chat, DiscoveredSession } from '@shared/types';
-import { transcriptDirFor } from '../platform.js';
+import { resolveTranscriptDir } from '../platform.js';
 import * as state from '../state.js';
 import { badRequest, notFound } from '../errors.js';
 
@@ -80,7 +80,7 @@ function firstPromptOf(path: string): string | null {
 }
 
 function discover(projectPath: string, importedSessionIds: Set<string>): DiscoveredSession[] {
-  const dir = transcriptDirFor(projectPath);
+  const dir = resolveTranscriptDir(projectPath);
   if (!existsSync(dir)) return [];
 
   let names: string[];
@@ -149,7 +149,7 @@ export async function sessionRoutes(app: FastifyInstance): Promise<void> {
       const already = state.read().chats.find((c) => c.sessionId === sessionId);
       if (already) return badRequest(reply, `Already imported as "${already.title}".`, 'ALREADY_IMPORTED');
 
-      const path = join(transcriptDirFor(project.path), `${sessionId}.jsonl`);
+      const path = join(resolveTranscriptDir(project.path), `${sessionId}.jsonl`);
       if (!existsSync(path)) {
         return badRequest(reply, 'No transcript for that session in this project.', 'NO_TRANSCRIPT');
       }

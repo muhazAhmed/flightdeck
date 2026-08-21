@@ -19,10 +19,10 @@
  * must not stop a chat from opening — it is at worst a chat that starts empty, which is
  * exactly the behaviour before this existed.
  */
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { UiEvent } from '@shared/types';
-import { transcriptDirFor } from './platform.js';
+import { projectsRoot, resolveTranscriptDir } from './platform.js';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
@@ -54,8 +54,43 @@ function isSyntheticPrompt(text: string): boolean {
   );
 }
 
+/**
+ * Where a session's transcript is, encoded name first and a scan as the fallback.
+ *
+ * THE ENCODING IS DERIVED FROM OBSERVATION, not from documentation, and it has already been wrong once: it
+ * missed that an underscore in a path becomes a dash, so every project with one in its name replayed as an
+ * empty chat — the transcript on disk the whole time, one character away. A session id is unambiguous, so when
+ * the computed directory does not hold it, every project directory is checked for the file by name.
+ *
+ * The scan is cheap (one readdir plus a stat per project directory) and only happens on a miss, so the common
+ * case still costs nothing. It returns the encoded path when nothing matches, because a caller wants a path to
+ * report as missing rather than a null to handle.
+ */
 export function transcriptPath(cwd: string, sessionId: string): string {
-  return join(transcriptDirFor(cwd), `${sessionId}.jsonl`);
+  return findTranscript(projectsRoot(), resolveTranscriptDir(cwd), `${sessionId}.jsonl`);
+}
+
+/**
+ * The encoded location if the file is there, else wherever in `root` it actually is.
+ *
+ * Takes its root as an argument so the scan can be tested against a directory built for the purpose rather
+ * than against whatever this machine happens to hold.
+ */
+export function findTranscript(root: string, encodedDir: string, file: string): string {
+  const encoded = join(encodedDir, file);
+  if (existsSync(encoded)) return encoded;
+
+  try {
+    for (const entry of readdirSync(root, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
+      const candidate = join(root, entry.name, file);
+      if (existsSync(candidate)) return candidate;
+    }
+  } catch {
+    // No projects directory at all: the CLI has never run on this machine, which is not an error.
+  }
+  // The encoded path, so a caller has something to report as missing rather than a null to handle.
+  return encoded;
 }
 
 /**
