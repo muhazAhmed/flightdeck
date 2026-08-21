@@ -25,27 +25,29 @@
   --surface-2: #f1f3f6;
   --surface-3: #e6e9ee;
 
-  --border-subtle: #e6e9ee;
-  --border: #d6dae1;
+  /* Borders carry more of the structure in a light theme, where there is no depth to lean on. */
+  --border-subtle: #e2e6ec;
+  --border: #cbd1da;
 
-  --text-primary: #101319;
-  --text-secondary: #4a5262;
-  --text-muted: #6f7889;
+  --text-primary: #0d1017;
+  --text-secondary: #454e5e;
+  --text-muted: #667084;
 
   /* The accent fill is unchanged: a colour that carries white text works on either background, and
    * keeping it identical means a button looks the same in both themes. `--accent-bright` has to
    * come down, though — a light mark on white is invisible. */
-  --accent-bright: #0e7490;
-  --accent-subtle: rgb(14 116 144 / 0.1);
+  --accent-bright: #6d28d9;
+  --accent-subtle: rgb(109 40 217 / 0.12);
 
   --success: #15803d;
   --danger: #b91c1c;
-  --warn: #a16207;
-  --info: #6d28d9;
+  --warn: #b45309;
+  /* Sky, matching the dark theme: violet is the accent now, and a notice must not read as one. */
+  --info: #0369a1;
 
-  --diff-add-bg: rgb(21 128 61 / 0.1);
+  --diff-add-bg: rgb(21 128 61 / 0.14);
   --diff-add-gutter: #15803d;
-  --diff-del-bg: rgb(185 28 28 / 0.1);
+  --diff-del-bg: rgb(185 28 28 / 0.14);
   --diff-del-gutter: #b91c1c;
   /* Lighter ground needs less alpha to read as emphasis without washing the text out. */
   --diff-add-word: rgb(21 128 61 / 0.28);
@@ -56,26 +58,49 @@
 
 /* ── Accents ────────────────────────────────────────────────────────────────────────────────── */
 
+/*
+ * Violet is the default and lives in tokens.css; every block here is an override.
+ *
+ * Each fill carries white text at 4.5:1 or better and each `--accent-bright` clears 4.5:1 against
+ * the panel it sits on — measured, not chosen by eye. Where a brighter hover would drop the label
+ * below the threshold the hover goes DARKER instead, which happens for more of these than not:
+ * #8B5CF6 is 4.23:1, #3B82F6 is 3.68:1, #0891B2 is 3.68:1. All unusable behind a white label.
+ *
+ * `--accent-subtle` is 0.2 throughout, up from 0.14: on the deeper ground a selected row at 0.14
+ * was almost invisible.
+ */
+
+:root[data-accent='cyan'] {
+  --accent: #0e7490;
+  --accent-hover: #155e75;
+  --accent-bright: #22d3ee;
+  --accent-subtle: rgb(34 211 238 / 0.2);
+}
+:root[data-accent='cyan'][data-theme='light'] {
+  --accent-bright: #0e7490;
+  --accent-subtle: rgb(14 116 144 / 0.12);
+}
+
 :root[data-accent='violet'] {
-  --accent: #6d28d9;
-  --accent-hover: #7c3aed;
-  --accent-bright: #a78bfa;
-  --accent-subtle: rgb(167 139 250 / 0.14);
+  --accent: #7c3aed;
+  --accent-hover: #6d28d9;
+  --accent-bright: #b69dff;
+  --accent-subtle: rgb(139 92 246 / 0.2);
 }
 :root[data-accent='violet'][data-theme='light'] {
   --accent-bright: #6d28d9;
-  --accent-subtle: rgb(109 40 217 / 0.1);
+  --accent-subtle: rgb(109 40 217 / 0.12);
 }
 
 :root[data-accent='blue'] {
-  --accent: #1d4ed8;
-  --accent-hover: #2563eb;
-  --accent-bright: #60a5fa;
-  --accent-subtle: rgb(96 165 250 / 0.14);
+  --accent: #2563eb;
+  --accent-hover: #1d4ed8;
+  --accent-bright: #7cb0ff;
+  --accent-subtle: rgb(124 176 255 / 0.2);
 }
 :root[data-accent='blue'][data-theme='light'] {
   --accent-bright: #1d4ed8;
-  --accent-subtle: rgb(29 78 216 / 0.1);
+  --accent-subtle: rgb(29 78 216 / 0.12);
 }
 
 :root[data-accent='green'] {
@@ -84,47 +109,47 @@
    * matters more than the convention of brightening on hover. */
   --accent-hover: #166534;
   --accent-bright: #4ade80;
-  --accent-subtle: rgb(74 222 128 / 0.14);
+  --accent-subtle: rgb(74 222 128 / 0.2);
 }
 :root[data-accent='green'][data-theme='light'] {
   --accent-bright: #15803d;
-  --accent-subtle: rgb(21 128 61 / 0.1);
+  --accent-subtle: rgb(21 128 61 / 0.12);
 }
 
 :root[data-accent='amber'] {
-  --accent: #a16207;
-  --accent-hover: #b45309;
+  --accent: #b45309;
+  --accent-hover: #92400e;
   --accent-bright: #fbbf24;
-  --accent-subtle: rgb(251 191 36 / 0.14);
+  --accent-subtle: rgb(251 191 36 / 0.2);
 }
 :root[data-accent='amber'][data-theme='light'] {
-  --accent-bright: #a16207;
-  --accent-subtle: rgb(161 98 7 / 0.1);
+  --accent-bright: #b45309;
+  --accent-subtle: rgb(180 83 9 / 0.12);
 }
 
 :root[data-accent='pink'] {
-  --accent: #be185d;
-  --accent-hover: #db2777;
+  --accent: #db2777;
+  --accent-hover: #be185d;
   --accent-bright: #f9a8d4;
-  --accent-subtle: rgb(249 168 212 / 0.14);
+  --accent-subtle: rgb(249 168 212 / 0.2);
 }
 :root[data-accent='pink'][data-theme='light'] {
   --accent-bright: #be185d;
-  --accent-subtle: rgb(190 24 93 / 0.1);
+  --accent-subtle: rgb(190 24 93 / 0.12);
 }
 
 /* Red is offered because people ask for it, but it is the one accent that collides with meaning:
  * `--danger` is red, so a red accent makes "interactive" and "destructive" the same colour. The
  * settings UI says so next to the swatch. */
 :root[data-accent='red'] {
-  --accent: #b91c1c;
-  --accent-hover: #dc2626;
-  --accent-bright: #f87171;
-  --accent-subtle: rgb(248 113 113 / 0.14);
+  --accent: #dc2626;
+  --accent-hover: #b91c1c;
+  --accent-bright: #fca5a5;
+  --accent-subtle: rgb(252 165 165 / 0.2);
 }
 :root[data-accent='red'][data-theme='light'] {
   --accent-bright: #b91c1c;
-  --accent-subtle: rgb(185 28 28 / 0.1);
+  --accent-subtle: rgb(185 28 28 / 0.12);
 }
 
 /* ── Density ────────────────────────────────────────────────────────────────────────────────── */

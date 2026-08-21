@@ -195,7 +195,7 @@ export interface Settings {
 
 export const DEFAULT_SETTINGS: Settings = {
   theme: 'dark',
-  accent: 'cyan',
+  accent: 'violet',
   density: 'comfortable',
   confirmLevel: 'all',
   restoreLastProject: true,

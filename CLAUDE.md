@@ -28,8 +28,9 @@ database.
 
 1. **Never hardcode a color.** Every color comes from a token in DESIGN.md. If a value
    you need does not exist, add the token — do not inline a hex.
-2. **Green and red are semantic only.** Added/succeeded and removed/failed. The accent
-   is cyan. A decorative green anywhere is a bug.
+2. **Green and red are semantic only.** Added/succeeded and removed/failed. The accent is
+   therefore never one of them — it ships as violet, with six alternatives in Settings. A decorative
+   green anywhere is a bug.
 3. **Never `setState` per streamed chunk.** Accumulate in a ref, flush on
    `requestAnimationFrame`. This is the difference between smooth and unusable.
 4. **Never "Something went wrong."** Surface the real `git`/`claude` stderr, verbatim,

@@ -9,12 +9,12 @@ import { Toggle } from '../controls/Toggle';
 
 const ACCENTS: { name: AccentName; label: string; swatch: string; note?: string }[] = [
   { name: 'cyan', label: 'Cyan', swatch: '#0e7490' },
-  { name: 'violet', label: 'Violet', swatch: '#6d28d9' },
-  { name: 'blue', label: 'Blue', swatch: '#1d4ed8' },
+  { name: 'violet', label: 'Violet', swatch: '#7c3aed' },
+  { name: 'blue', label: 'Blue', swatch: '#2563eb' },
   { name: 'green', label: 'Green', swatch: '#15803d', note: 'Shares a hue with added lines in diffs' },
-  { name: 'amber', label: 'Amber', swatch: '#a16207', note: 'Shares a hue with warnings' },
-  { name: 'pink', label: 'Pink', swatch: '#be185d' },
-  { name: 'red', label: 'Red', swatch: '#b91c1c', note: 'Shares a hue with errors and destructive actions' }
+  { name: 'amber', label: 'Amber', swatch: '#b45309', note: 'Shares a hue with warnings' },
+  { name: 'pink', label: 'Pink', swatch: '#db2777' },
+  { name: 'red', label: 'Red', swatch: '#dc2626', note: 'Shares a hue with errors and destructive actions' }
 ];
 
 interface SectionProps {

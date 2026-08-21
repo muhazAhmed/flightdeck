@@ -137,10 +137,12 @@ export function useTerminal(
       cursorBlink: initial.cursorBlink,
       // The shell's own colours arrive as escape codes; only the surrounding chrome is ours.
       theme: {
-        background: token('--bg-base') || '#101319',
-        foreground: token('--text-primary') || '#e8ebf0',
-        cursor: token('--accent-bright') || '#22d3ee',
-        selectionBackground: token('--accent-subtle') || 'rgba(34,211,238,0.24)'
+        /* Fallbacks match tokens.css, for the frame before the stylesheet has applied. Kept in step with it
+           when the palette was punched up — a stale fallback here shows the old theme for one paint. */
+        background: token('--bg-base') || '#0d1017',
+        foreground: token('--text-primary') || '#f2f5fa',
+        cursor: token('--accent-bright') || '#b69dff',
+        selectionBackground: token('--accent-subtle') || 'rgba(139,92,246,0.28)'
       },
       allowProposedApi: true
     });

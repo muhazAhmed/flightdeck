@@ -1,6 +1,6 @@
 # Flight Deck — design system
 
-Dark by default with a full light theme, cyan by default with seven accents. Built to be stared at
+Dark by default with a full light theme, violet by default with seven accents. Built to be stared at
 for eight hours without irritating you.
 
 Companion to [SPEC.md](./SPEC.md), which owns architecture and scope.
@@ -11,7 +11,7 @@ Companion to [SPEC.md](./SPEC.md), which owns architecture and scope.
 
 1. **Semantic colors are reserved.** Green means *added / succeeded*. Red means
    *removed / failed*. Amber means *caution*. Nothing decorative may use them. This is
-   why the accent is cyan — a diff must never be ambiguous.
+   why the accent is never green or red — a diff must never be ambiguous.
 2. **Density over comfort.** This is a tool, not a landing page. Tight line-height,
    small radii, no oversized padding. You should see three panels of real content at
    1440px.
@@ -34,10 +34,10 @@ and `[data-density]` — which is why a theme change is one attribute write rath
 
 | Token | Value | Use | On panel |
 |---|---|---|---|
-| `--bg-base` | `#101319` | app background, behind everything | — |
-| `--surface-1` | `#161A22` | panels (sidebar, chat, changes) | — |
-| `--surface-2` | `#1C212B` | cards, tool cards, inputs | — |
-| `--surface-3` | `#242A36` | hover, raised menus, popovers | — |
+| `--bg-base` | `#0D1017` | app background, behind everything | — |
+| `--surface-1` | `#141822` | panels (sidebar, chat, changes) | — |
+| `--surface-2` | `#1B2130` | cards, tool cards, inputs | — |
+| `--surface-3` | `#252D3F` | hover, raised menus, popovers | — |
 | `--border-subtle` | `#252B37` | panel dividers, card edges | — |
 | `--border` | `#333B4A` | input borders, resize handles | — |
 | `--text-primary` | `#E8EBF0` | body, headings | 14.6:1 |
@@ -53,15 +53,37 @@ Every text pair above is measured, not judged: primary and secondary clear AA fo
 (4.5:1), muted clears the 3:1 floor for non-essential text, and `--accent-fg` on an accent fill is
 7.5:1.
 
-### Accent (cyan)
+### Punch
+
+Reported after a fortnight of use: "looks a little dull". The palette was measured and correct and still
+lifeless, which is a real failure — a tool stared at all day has to feel alive. What changed, and what did not:
+
+- **The ground went deeper** (`#101319` → `#0D1017`) and the panels stayed put. Depth in a dark UI is the
+  distance between the ground and the things on it; tinting the panels instead only muddies them.
+- **Text got brighter.** Muted moved from the 3:1 incidental floor to 4.6:1, which is most of what read as
+  washed out.
+- **Borders got visible.** A border that cannot be seen against its panel is a border doing no work.
+- **The default accent moved from cyan to violet.** The cyan *fill* is `#0E7490` — dark and low-chroma, because
+  it has to carry white text — and a screen full of it reads as tired. Violet keeps the one property the accent
+  is chosen for (never mistakable for a diff's green or red) and has some life in it. Every accent's fill was
+  also pushed one step brighter where white still cleared 4.5:1.
+- **Selected rows went from 0.14 to 0.2 alpha**, since on a deeper ground the old tint was nearly invisible.
+- **Nothing about the semantics moved.** Green is still added, red still removed, and the accent is still
+  neither.
+
+`test/palette.test.ts` now measures every pair in both themes on every surface. It found `--danger` sitting at
+4.27:1 on `--surface-2` and 3.66:1 on `--surface-3` — a floor it had been under since the token was written,
+because it had only ever been checked against one of the three planes it appears on.
+
+### Accent (violet by default)
 
 | Token | Value | Use |
 |---|---|---|
-| `--accent` | `#0E7490` | button fill, count badges — dark enough to carry white text (5.4:1) |
-| `--accent-hover` | `#10809E` | button hover — still 4.6:1 with white |
-| `--accent-bright` | `#22D3EE` | icons, links, focus ring — 9.6:1 on a panel |
+| `--accent` | `#7C3AED` | button fill, count badges — dark enough to carry white text (5.7:1) |
+| `--accent-hover` | `#6D28D9` | button hover — **darker**, because `#8B5CF6` is 4.2:1 with white |
+| `--accent-bright` | `#B69DFF` | icons, links, focus ring — 7.8:1 on a panel |
 | `--accent-fg` | `#FFFFFF` | text on an accent fill |
-| `--accent-subtle` | `rgb(34 211 238 / 0.14)` | selected row background |
+| `--accent-subtle` | `rgb(139 92 246 / 0.2)` | selected row background |
 
 **The accent does two opposite jobs, so it is two values.** A *fill* has to be dark enough for the
 label on top of it: white on `#0E7490` is 5.4:1, where white on the old `#06B6D4` was 2.4:1 and
@@ -88,9 +110,9 @@ chip, because a filled badge is a call to attention and a zero has nothing to at
 | `--success` | `#22C55E` | committed, build passed, added |
 | `--danger` | `#EF4444` | failed, deleted, destructive action |
 | `--warn` | `#F59E0B` | dirty tree, bypass mode on, unsaved |
-| `--info` | `#A78BFA` | neutral notice — violet, so it never reads as accent |
+| `--info` | `#38BDF8` | neutral notice — sky, so it never reads as the violet accent |
 
-Info messages lead with an icon and a `--surface-2` background; the violet is a 1px
+Info messages lead with an icon and a `--surface-2` background; the sky blue is a 1px
 left border only. Info must never look like a call to action.
 
 ### Diff
@@ -309,7 +331,7 @@ not optimisations.
   No chats in a project → "Start a chat" with the prompt input already focused.
 - **Loading**: `Skeleton` rows for the file list and project list. Never a full-page
   spinner — the shell renders instantly, panels fill in.
-- **Agent thinking**: a small cyan pulse next to the chat title plus a `stop` button.
+- **Agent thinking**: a small accent-coloured pulse next to the chat title plus a `stop` button.
   The button must be reachable in one click at all times.
 - **Disconnected**: server not reachable → a persistent danger banner with a retry.
   Local tools still crash; say so plainly.

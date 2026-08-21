@@ -1910,3 +1910,37 @@ last — it is an outward-facing write to a repository colleagues read, made fro
 confidently wrong, and it will be selected by hand, previewed, and posted as a single pending review nobody else
 sees until it is submitted.
 
+### 2026-08-20 · The palette was correct and dull, so it was punched up
+
+"Make the whole app colors punchy like this, right now looks little dull", with a violet mock attached. Fair:
+every pair in the palette was measured and documented, and the result still had no life in it. Correct is not
+the same as good.
+
+Four levers, in order of how much they mattered.
+
+**The ground, not the panels.** `--bg-base` went from `#101319` to `#0D1017` and the panels stayed where they
+were. The depth of a dark interface is the distance between the ground and what sits on it; tinting the panels
+to "add richness" only muddies them.
+
+**Text.** `--text-muted` moved from the 3:1 incidental floor to 4.6:1 and primary to 16.2:1. Most of what read
+as "washed out" was text sitting at its minimum rather than colour being absent.
+
+**The default accent, cyan → violet.** This one is a real reversal, and CLAUDE.md's rule 2 said "the accent is
+cyan" in as many words. The reason behind that rule was never cyan itself — it was that the accent must never be
+mistakable for a diff's green or red. Violet satisfies it and has chroma the cyan *fill* cannot: `#0E7490` is
+dark and desaturated because it has to carry white text at 4.5:1, and a whole screen of it reads as tired.
+Cyan remains one keystroke away, along with five others.
+
+**Hover goes darker for most accents now.** `#8B5CF6` is the obvious brighter-violet hover and it measures
+4.23:1 with white — an unreadable label. Same for `#3B82F6` (3.68) and `#0891B2` (3.68). Green already darkened
+on hover for this reason; now violet, blue, amber, pink and red do too. A readable button beats a convention.
+
+**And the discipline got a test.** DESIGN.md had claimed for months that every pair was "measured, not chosen by
+eye" — with nothing enforcing it, so it decayed. `test/palette.test.ts` parses the shipped CSS and checks text on
+all four surfaces, white on every fill, every mark on all three planes it can land on, and every accent as both
+fill and mark in both themes. It immediately found `--danger` at **4.27:1 on `--surface-2` and 3.66:1 on
+`--surface-3`** — under the floor since the token was written, because it had only ever been checked against
+`--surface-1`. `#EF4444` became `#FF5C5C`: punchier *and* passing on all three.
+
+Nothing about the semantics moved. Green is added, red is removed, and the accent is still neither.
+

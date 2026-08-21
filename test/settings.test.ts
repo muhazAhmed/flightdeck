@@ -58,8 +58,17 @@ test('every offered accent has styles, and every styled accent is offered', () =
 });
 
 test('the default accent is the one tokens.css ships', () => {
-  assert.equal(DEFAULT_SETTINGS.accent, 'cyan');
-  assert.ok(!/\[data-accent='cyan'\]/.test(themes), 'cyan should come from tokens.css, not an override');
+  /*
+   * Violet since the palette was punched up: the cyan fill is dark and low-chroma, and a screen full
+   * of it read as tired. The invariant is what matters — whatever `DEFAULT_SETTINGS` says must be the
+   * accent a fresh `:root` already carries, or the app starts in a colour no setting selected.
+   */
+  assert.equal(DEFAULT_SETTINGS.accent, 'violet');
+  const tokens = readFileSync('client/styles/tokens.css', 'utf8');
+  // The violet fill, in tokens.css rather than only in an override.
+  assert.match(tokens, /--accent: #7c3aed/);
+  // And cyan now needs its own block, since it is no longer what :root happens to hold.
+  assert.match(themes, /\[data-accent='cyan'\]/);
 });
 
 test('every accent redefines the whole set of accent variables', () => {

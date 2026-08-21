@@ -3,8 +3,9 @@
  * component is a bug (CLAUDE.md rule 1). Dark is the only shipped theme, but defining
  * everything as variables here means a light theme is a second block, not a refactor.
  *
- * Green and red are reserved for diff and status semantics. The accent is cyan so a
- * highlight in the diff viewer can never be mistaken for an interactive affordance.
+ * Green and red are reserved for diff and status semantics. The accent is never one of them, so a
+ * highlight in the diff viewer can never be mistaken for an interactive affordance — it defaults to
+ * violet, with six alternatives in Settings.
  */
 :root {
   /*
@@ -12,57 +13,83 @@
    * these are lifted into slate with a slight blue cast, which is what gives a dark UI depth.
    * Each step is a visible increment, so a card on a panel on the app background reads as three
    * distinct planes without needing shadows.
+   *
+   * Deepened once already, on the report that the whole app "looks a little dull". The punch of a
+   * dark UI comes from the distance between the ground and everything on it — not from tinting the
+   * panels, which only muddies them.
    */
-  --bg-base: #101319;
-  --surface-1: #161a22;
-  --surface-2: #1c212b;
-  --surface-3: #242a36;
+  --bg-base: #0d1017;
+  --surface-1: #141822;
+  --surface-2: #1b2130;
+  --surface-3: #252d3f;
 
-  --border-subtle: #252b37;
-  --border: #333b4a;
+  /* Raised with the surfaces: a border invisible against its panel is a border doing no work. */
+  --border-subtle: #2a3242;
+  --border: #3a4459;
 
-  --text-primary: #e8ebf0;
-  --text-secondary: #a4adbd;
-  --text-muted: #6f7889;
+  /*
+   * TEXT. Measured against `--surface-1`: primary 16.2:1, secondary 8.7:1, muted 4.6:1.
+   * Muted used to sit near the 3:1 floor for non-essential text and now clears the 4.5:1 body
+   * threshold as well, which is most of what made the old palette feel washed out.
+   */
+  --text-primary: #f2f5fa;
+  --text-secondary: #adb6c6;
+  --text-muted: #78829a;
 
   /*
    * ACCENT. Two jobs, two values. `--accent` is a FILL that carries white text, so it has to be
-   * dark enough for it: white on #0E7490 is 5.4:1, where white on the old #06B6D4 was 2.4:1 and
-   * failed outright. `--accent-bright` is for marks ON dark surfaces — icons, links, focus rings —
-   * where the requirement is the opposite and 9.6:1 against a panel is what you want.
+   * dark enough for it: white on #7C3AED is 5.7:1. `--accent-bright` is for marks ON dark surfaces
+   * — icons, links, focus rings — where the requirement is the opposite, and #B69DFF is 7.8:1
+   * against a panel.
+   *
+   * VIOLET RATHER THAN CYAN by default, which is a change: the cyan fill (#0E7490) is dark and
+   * low-chroma, and a screen full of it reads as tired. Violet keeps the property the accent was
+   * chosen for — it can never be mistaken for a diff's green or red — while being a colour with
+   * some life in it. Cyan is still one keystroke away in Settings, along with five others.
+   *
+   * HOVER GOES DARKER, like green's. #8B5CF6 is the obvious "brighter on hover" choice and it
+   * measures 4.23:1 with white, i.e. an unreadable label. A readable button matters more than the
+   * convention.
    */
-  --accent: #0e7490;
-  --accent-hover: #10809e;
-  --accent-bright: #22d3ee;
+  --accent: #7c3aed;
+  --accent-hover: #6d28d9;
+  --accent-bright: #b69dff;
   --accent-fg: #ffffff;
-  --accent-subtle: rgb(34 211 238 / 0.14);
+  /* 0.14 was almost invisible on the deeper ground; a selected row has to be obvious at a glance. */
+  --accent-subtle: rgb(139 92 246 / 0.2);
 
-  /* MARKS: bright, for text and icons on a dark surface. */
+  /* MARKS: bright, for text and icons on a dark surface. Amber lifted from #F59E0B to 10.6:1. */
   --success: #22c55e;
-  --danger: #ef4444;
-  --warn: #f59e0b;
-  --info: #a78bfa;
+  /*
+   * #EF4444 measured 4.27:1 on `--surface-2` and 3.66:1 on `--surface-3` — under the body floor on
+   * two of the three planes it is used on, which was true before the palette was punched up and had
+   * never been measured against anything but surface-1. This clears all three at 5.9 / 5.3 / 4.6.
+   */
+  --danger: #ff5c5c;
+  --warn: #fbbf24;
+  /* Sky rather than violet, now that violet is the default accent: a notice must never read as one. */
+  --info: #38bdf8;
 
   /*
    * FILLS: dark enough to carry a white label, for badges and filled chips. Same split as the
-   * accent — a colour bright enough to read as an icon cannot also sit behind white text. Each was
-   * measured: white clears 4.9:1 or better on all four, in both themes.
+   * accent — a colour bright enough to read as an icon cannot also sit behind white text. Each is
+   * measured with white: success 5.0:1, warn 5.0:1, info 5.9:1, danger 4.8:1.
    */
   --fill-success: #15803d;
-  --fill-warn: #a16207;
-  --fill-info: #6d28d9;
-  --fill-danger: #b91c1c;
+  --fill-warn: #b45309;
+  --fill-info: #0369a1;
+  --fill-danger: #dc2626;
 
-  /* Slightly stronger than before: a lifted background needs more tint to read as a diff. */
-  --diff-add-bg: rgb(34 197 94 / 0.16);
+  /* Stronger again: on the deeper ground a 0.16 tint stopped reading as a diff at all. */
+  --diff-add-bg: rgb(34 197 94 / 0.22);
   --diff-add-gutter: #22c55e;
-  --diff-del-bg: rgb(239 68 68 / 0.16);
-  --diff-del-gutter: #ef4444;
-  /* Word-level emphasis inside a changed line. Deliberately the same hue as the row it sits on, at roughly
-     three times the alpha: the row already says "added", and this says "here". A different hue would read as
-     a third kind of change. */
-  --diff-add-word: rgb(34 197 94 / 0.42);
-  --diff-del-word: rgb(239 68 68 / 0.42);
+  --diff-del-bg: rgb(239 68 68 / 0.22);
+  --diff-del-gutter: #ff5c5c;
+  /* Word-level emphasis inside a changed line. Deliberately the same hue as the row it sits on, at
+     roughly twice the alpha: the row already says "added", and this says "here". A different hue
+     would read as a third kind of change. */
+  --diff-add-word: rgb(34 197 94 / 0.5);
+  --diff-del-word: rgb(239 68 68 / 0.5);
 
   --shadow-popover: 0 12px 32px rgb(0 0 0 / 0.55);
 
