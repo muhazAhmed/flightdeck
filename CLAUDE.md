@@ -57,7 +57,8 @@ database.
 
 - **Structure:** `client/` (React), `server/` (Fastify), `shared/` (types used by both).
   Server code that spawns anything lives in `server/agent.ts` and `server/pty.ts` —
-  nowhere else.
+  nowhere else. A workflow task is run by `server/tasks.ts`, which calls `agent.ts`; what a task may do
+  is decided in `server/workflow.ts`, as argv, and nowhere else.
 - **Types are shared, not duplicated.** UI event and API shapes live in `shared/types.ts`
   and are imported by both halves.
 - **Server modules are thin and testable.** Stream parsing (NDJSON → UI events) is a pure
@@ -91,8 +92,11 @@ project repos — those are live client work.
 - Do not animate per-token text, or add spring/bounce motion anywhere.
 - Do not introduce a `manual` permission mode until an approval channel is verified to
   exist (see API.md — this CLI has no `--permission-prompt-tool`).
-- Do not build multi-agent anything: no orchestrator, no agent-to-agent messages, no
-  worktrees, no scheduled runs. That was the previous attempt; it is not this one.
+- Do not build agent routing. The Workflow view hands a task to **one** `claude` session and gives it
+  specialist roles as `--agents` definitions; the CLI's own delegation does the rest, and Flight Deck
+  only shows it. No message bus between agents, no orchestrator process of our own, no worktrees or
+  per-agent branches, no scheduled or remote runs. That was the previous attempt; see DECISIONS.md —
+  "Workflow: delegation inside one session" for exactly where the line is.
 - Do not run experiments against the user's real project repos while developing Flight
   Deck itself. Create a scratch repo.
 

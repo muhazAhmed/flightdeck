@@ -3,6 +3,8 @@
  * responses, the client to consume them — so a shape can never drift between them.
  */
 
+import { DEFAULT_WORKFLOW_SETTINGS, type Task, type WorkflowSettings } from './workflow';
+
 export type PermissionMode = 'acceptEdits' | 'plan' | 'bypassPermissions';
 
 /**
@@ -43,6 +45,13 @@ export interface Project {
    * the button shows the ref it will use.
    */
   fastForwardRef?: string;
+  /**
+   * Shell commands a workflow task may run in this project without approval, as prefixes.
+   *
+   * Absent means "the check scripts detected in package.json". An empty list is a real choice — nothing may
+   * execute — which is why it is not the same as absent.
+   */
+  workflowCommands?: string[];
 }
 
 export interface Chat {
@@ -191,6 +200,8 @@ export interface Settings {
   checkForUpdates: boolean;
   /** Set by the client as projects are selected; the seed for `restoreLastProject`. */
   lastProjectId: string | null;
+  /** The lead prompt, the specialist roles and the tools a workflow task may use. See shared/workflow.ts. */
+  workflow: WorkflowSettings;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -208,7 +219,8 @@ export const DEFAULT_SETTINGS: Settings = {
   commitSignoff: false,
   draftModel: '',
   checkForUpdates: true,
-  lastProjectId: null
+  lastProjectId: null,
+  workflow: DEFAULT_WORKFLOW_SETTINGS
 };
 
 // ─── Project scripts ─────────────────────────────────────────────────────
@@ -638,6 +650,8 @@ export interface AppState {
   lastBrowsedDir: string | null;
   projects: Project[];
   chats: Chat[];
+  /** Workflow tasks. Absent in a state file written before the workflow existed. */
+  tasks?: Task[];
   /** Identities offered in the switcher. Never applied automatically — switching is always
    *  an explicit act, because it rewrites who authors the next commit. */
   identities: SavedIdentity[];
@@ -663,6 +677,8 @@ export interface SessionEvent {
   cwd: string;
   permissionMode: string;
   tools: string[];
+  /** MCP servers the CLI reported and whether each connected — how a task knows which browser tools exist. */
+  mcpServers?: { name: string; status: string }[];
 }
 
 /** A user's message. Only produced by history replay — during a live run the client
@@ -748,6 +764,48 @@ export interface ErrorEvent {
   detail?: string;
 }
 
+/**
+ * A specialist was started by the lead.
+ *
+ * `id` is the tool call that started it, which is also what every tool call the specialist makes carries as
+ * `parentToolUseId` — so one id ties a lane together. `agentId` is the CLI's own handle for the same agent,
+ * kept because a permission denial names the agent by that instead.
+ */
+export interface AgentStartEvent {
+  type: 'agent_start';
+  id: string;
+  agentId: string;
+  role: string;
+  description: string;
+  prompt: string;
+}
+
+/** What a running specialist is doing right now, as the CLI summarises it. */
+export interface AgentProgressEvent {
+  type: 'agent_progress';
+  id: string;
+  description: string;
+  toolUses: number;
+  totalTokens: number;
+}
+
+export interface AgentEndEvent {
+  type: 'agent_end';
+  id: string;
+  status: string;
+  /** The specialist's final report to the lead. */
+  summary: string;
+}
+
+/** A tool call the CLI refused because nothing allowed it and a headless run cannot ask. */
+export interface DeniedEvent {
+  type: 'denied';
+  toolName: string;
+  message: string;
+  /** The CLI's handle for the specialist that tried, or null for the lead. */
+  agentId: string | null;
+}
+
 export type UiEvent =
   | PromptEvent
   | SessionEvent
@@ -757,7 +815,11 @@ export type UiEvent =
   | TurnEndEvent
   | RateLimitEvent
   | DoneEvent
-  | ErrorEvent;
+  | ErrorEvent
+  | AgentStartEvent
+  | AgentProgressEvent
+  | AgentEndEvent
+  | DeniedEvent;
 
 // ─── Git ────────────────────────────────────────────────────────────────────
 

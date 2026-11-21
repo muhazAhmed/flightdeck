@@ -75,6 +75,7 @@ export function update<T>(fn: (state: AppState) => T): T {
     ...state,
     projects: [...state.projects],
     chats: [...state.chats],
+    tasks: [...(state.tasks ?? [])],
     identities: [...(state.identities ?? [])],
     settings: { ...DEFAULT_SETTINGS, ...(state.settings ?? {}) },
     layout: { ...state.layout }

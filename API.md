@@ -72,6 +72,16 @@ change touches one file.
 | `rate_limit` | `{status, resetsAt, rateLimitType}` | quota chip in the status bar |
 | `done` | `{isError, result, numTurns, durationMs, costUsd, denials}` | run summary line |
 | `error` | `{message, stderr}` | danger banner + toast, stderr verbatim |
+| `agent_start` | `{id, agentId, role, description, prompt}` | a specialist's lane (workflow tasks) |
+| `agent_progress` | `{id, description, toolUses, totalTokens}` | the lane's current line |
+| `agent_end` | `{id, status, summary}` | the lane's report |
+| `denied` | `{toolName, message, agentId}` | a blocker |
+
+The last four come from `system` records the CLI emits when a session delegates — `task_started`,
+`task_progress`, `task_notification` and `permission_denied` — verified against a real delegated run on
+Claude Code 2.1.287. `id` is the `tool_use_id` of the lead's `Agent` call, which is also the
+`parentToolUseId` on every tool call the specialist makes. A session that delegates emits **several**
+`done` events, one each time the lead is woken; only the process exiting ends a run.
 
 **Text batching contract:** the server may coalesce consecutive `text_delta`s into one
 `text` event (~50ms window). The client additionally buffers into a
@@ -716,6 +726,42 @@ the upstream log; a staged `wip.txt` was refused and stayed staged; unstaged edi
 file produced a genuinely empty commit with the working tree untouched; and with the upstream moved
 away, the response read `Empty commit 1765189 was created, but the push failed` with git's own
 `Could not read from remote repository` and the `git reset --hard HEAD~1` escape.
+
+### Workflow tasks
+
+`GET /api/tasks` → `TaskSummary[]`, newest first, across all projects
+`POST /api/tasks` `{projectId, description, model?}` → `TaskSummary` — creates the task and starts it
+`GET /api/tasks/:id/events` → SSE of `UiEvent`: the task's log so far, then live events until the run ends
+`POST /api/tasks/:id/message` `{text}` → `TaskSummary` — a follow-up, resuming the lead's session
+`POST /api/tasks/:id/stop` · `DELETE /api/tasks/:id`
+`GET /api/projects/:id/workflow` → `{commands, detected, knowledge}` · `PUT` the same with `{commands?, knowledge?}`
+
+A task's run belongs to the server. Closing the events response detaches a viewer and does nothing to the
+task — the opposite of a chat's stream, where the response *is* the run.
+
+`BUSY` (400) when the project already has a task running: tasks share a working tree, so one at a time.
+
+**What a task run adds to the chat argv** (built in `server/workflow.ts`):
+
+```
+--add-dir <notes folder for this project>
+--append-system-prompt <lead prompt + project facts>
+--agents <JSON: one definition per enabled role>
+--allowedTools  Bash(<cmd>:*) PowerShell(<cmd>:*) …  <extra rules from settings>
+--disallowedTools  Bash(git commit:*) PowerShell(git commit:*) …  EnterWorktree CronCreate …
+```
+
+Every command rule is written for **both** shell tools. On Windows the CLI's shell tool is `PowerShell`
+and a `Bash(...)` rule does not match it — verified: with only `Bash(npm test:*)` allowed, `npm test` was
+denied.
+
+Permission mode is `acceptEdits`. There is still no approval channel, so the allow list is the whole
+answer to "what may execute"; the deny list keeps rule 6 of CLAUDE.md true even if a broad allow rule is
+added later. Both are prefix matches on the command text — a guard, not a sandbox.
+
+`commands: null` means "the detected check scripts"; `[]` means nothing may execute. A command is refused
+(`BAD_COMMAND`) if it starts with a dash, spans lines or contains parentheses, because it is wrapped in
+a `Tool(...)` rule and passed as an argument.
 
 ### Settings and storage
 

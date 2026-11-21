@@ -113,13 +113,28 @@ What the tool does, grouped by area, each tagged with the phase it lands in.
 | Confirmation level | **done** | Every action, or only the irreversible ones. Discard and force-delete always ask regardless. |
 | Command palette actions (not just navigation) | Later | "commit", "stash", "new chat" from `Ctrl+K`. |
 
+## Workflow
+
+| Feature | Phase | Notes |
+|---|---|---|
+| Hand a task to a Lead Engineer | **done** | Pick an imported project, describe the task, choose the lead's model. One headless `claude` session runs in that project's folder with a lead prompt appended. It edits the working tree only; you review the diff and commit. |
+| Specialist roles | **done** | Frontend, Backend and QA by default, passed to the CLI as `--agents` definitions. The lead decides per task whether to delegate at all. Roles, their prompts and models, and the lead prompt are editable in Settings → Workflow. |
+| Tasks survive leaving the page | **done** | A run belongs to the server, not the tab. Leave the page or open another task and it keeps going; reopening replays its activity from a log and reattaches. One task per project at a time, since they share a working tree; projects run in parallel. |
+| Activity you can inspect | **done** | A lane per specialist with its brief, tool calls and report; the lead's transcript; and a rail counted from what actually ran — stage, plan, files modified, checks and their result, browser-tool calls, denials and errors. |
+| Allowed commands per project | **done** | A headless run cannot ask, so the project's check scripts (test, lint, typecheck, build) are detected from `package.json` and allowed by prefix; everything else that executes is denied and shows under Blockers. Editable per project. `git commit`, `push` and branch switching are always denied. |
+| Project notes | **done** | One notes file per project in Flight Deck's data folder, never in the repository. The lead reads it first and updates it; you can edit it. |
+| Follow-up, stop, continue | **done** | A follow-up resumes the lead's session with its context. A stopped or interrupted task has a Continue button. |
+| Browser verification | **partly** | Used when a browser MCP server is connected and allowed (Settings → Workflow → Allowed tools); the rail says which servers were available and whether any was used. Nothing is installed for you. |
+| Stage shown is inferred | — | Derived from the most recent kind of work observed, not declared by the agent. It cannot tell "reviewing" from "implementing". |
+| Running indicator outside the page | Later | The sidebar does not yet mark a project whose task is running. |
+
 ## Explicitly not in this tool
 
 Recorded so we don't drift back into it:
 
-- **No orchestrator, no multi-agent routing, no agent-to-agent messaging.** One agent per chat, you decide who does what.
+- **No agent routing of our own.** The Workflow view delegates inside one CLI session; Flight Deck runs no orchestrator process and passes no messages between agents.
 - **No worktrees or per-agent branches.** The working tree is the sandbox; `git diff` is the audit trail.
-- **No scheduled or background runs.** Nothing happens unless you press something — no hourly standup quietly spending tokens.
+- **No scheduled runs.** Nothing starts unless you press something — no hourly standup quietly spending tokens. A task you started keeps running if you leave the page; that is the only background work there is.
 - **No remote access, tunnel, or phone control.** `localhost` only.
 - **No editor.** Monaco is there to *show* diffs, not to become a second VS Code.
 - **No auth, no multi-user, no deploy.** One machine, one person.

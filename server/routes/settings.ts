@@ -9,7 +9,9 @@ import {
   type Settings,
   type ThemeName
 } from '@shared/types';
+import type { WorkflowSettings } from '@shared/workflow';
 import * as state from '../state.js';
+import { isSafeRule } from '../workflow.js';
 import { badRequest } from '../errors.js';
 
 const THEMES: ThemeName[] = ['dark', 'light'];
@@ -41,6 +43,53 @@ function isKnownModel(value: string): boolean {
  * the DOM as a `data-accent` attribute that matches no CSS rule, leaving the app looking broken with
  * nothing to explain it.
  */
+/**
+ * Why a workflow patch is refused, or null when it is fine.
+ *
+ * Checked field by field because every one of these ends up on a command line: a role id is a key the CLI
+ * delegates by, a prompt is an argument, an allow rule is an argument in a list a stray dash would end. The
+ * length caps keep the whole argv well inside what Windows will accept for one process.
+ */
+function workflowProblem(value: unknown): string | null {
+  if (typeof value !== 'object' || value === null) return 'workflow must be an object.';
+  const workflow = value as Partial<WorkflowSettings>;
+
+  if (typeof workflow.leadPrompt !== 'string' || workflow.leadPrompt.length > 8000) {
+    return 'The lead prompt must be text of at most 8000 characters.';
+  }
+  if (!Array.isArray(workflow.roles) || workflow.roles.length > 8) return 'There can be at most 8 roles.';
+
+  const seen = new Set<string>();
+  for (const role of workflow.roles) {
+    if (typeof role !== 'object' || role === null) return 'Each role must be an object.';
+    if (typeof role.id !== 'string' || !/^[a-z][a-z0-9-]{1,30}$/.test(role.id)) {
+      return 'A role id must be 2 to 31 lowercase letters, digits or dashes, starting with a letter.';
+    }
+    if (seen.has(role.id)) return `Two roles share the id "${role.id}".`;
+    seen.add(role.id);
+    if (typeof role.name !== 'string' || !role.name.trim() || role.name.length > 60) {
+      return `Role "${role.id}" needs a name of at most 60 characters.`;
+    }
+    if (typeof role.description !== 'string' || !role.description.trim() || role.description.length > 600) {
+      return `Role "${role.id}" needs a description of at most 600 characters — the lead reads it to decide when to delegate.`;
+    }
+    if (typeof role.prompt !== 'string' || !role.prompt.trim() || role.prompt.length > 6000) {
+      return `Role "${role.id}" needs a prompt of at most 6000 characters.`;
+    }
+    if (typeof role.model !== 'string' || !isKnownModel(role.model)) return `Role "${role.id}" has an unknown model.`;
+    if (typeof role.enabled !== 'boolean') return `Role "${role.id}": enabled must be true or false.`;
+  }
+
+  if (!Array.isArray(workflow.allowedTools) || workflow.allowedTools.length > 40) {
+    return 'There can be at most 40 allowed tool rules.';
+  }
+  const bad = workflow.allowedTools.find((rule) => typeof rule !== 'string' || !isSafeRule(rule));
+  if (bad !== undefined) {
+    return `"${String(bad)}" is not a usable rule: one line, at most 200 characters, not starting with a dash.`;
+  }
+  return null;
+}
+
 function current(): Settings {
   return { ...DEFAULT_SETTINGS, ...(state.read().settings ?? {}) };
 }
@@ -109,6 +158,10 @@ export async function settingsRoutes(app: FastifyInstance): Promise<void> {
     }
     if (patch.checkForUpdates !== undefined && typeof patch.checkForUpdates !== 'boolean') {
       return badRequest(reply, 'checkForUpdates must be true or false.');
+    }
+    if (patch.workflow !== undefined) {
+      const problem = workflowProblem(patch.workflow);
+      if (problem) return badRequest(reply, problem);
     }
     // A stale last-project id is harmless — the client ignores one that no longer exists — so it is
     // accepted without checking the project still exists.

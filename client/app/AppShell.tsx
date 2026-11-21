@@ -316,7 +316,7 @@ export function AppShell() {
             </Panel>
           ) : view === 'workflow' ? (
             <Panel id="workflow" minSize="30">
-              <WorkflowPage />
+              <WorkflowPage projects={projects} settings={settings} />
             </Panel>
           ) : view === 'pr' ? (
             <Panel id="pr" minSize="30">

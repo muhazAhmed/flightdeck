@@ -47,6 +47,23 @@ export function attachmentsDir(): string {
 }
 
 /**
+ * One project's workflow notes folder.
+ *
+ * A folder per project rather than one shared folder, because it is handed to the CLI with `--add-dir`: a
+ * shared one would let a task in one repository read what was learned about another, and those are different
+ * clients' code. Outside the repository on purpose — notes written into it would show up in the diff the human
+ * is about to review.
+ */
+export function knowledgeDir(projectId: string): string {
+  return join(stateDir(), 'knowledge', projectId);
+}
+
+/** Where a task's event log is kept, so its activity can be shown again after a reload. */
+export function taskLogDir(): string {
+  return join(stateDir(), 'tasks');
+}
+
+/**
  * Where the add-project picker opens when the user has never browsed before.
  *
  * Deliberately the home directory and nothing cleverer. There is NO default projects

@@ -1986,3 +1986,56 @@ The lesson worth keeping: the original comment on that function warned in detail
 this wrong (collapsing runs) while being wrong itself. A comment explaining a derived format is not evidence
 that the format was checked — only a fixture from a real machine is.
 
+---
+
+### 2026-11-21 · Workflow: delegation inside one session — reversing the first decision, narrowly
+
+The first entry in this file chose a local console over a multi-agent harness, and said what would change
+it: "work regularly needs two agents progressing in parallel". The request that arrived was exactly that —
+hand over a task, have a lead plan it, delegate frontend and backend in parallel, and have something test
+it — so the decision is reversed. What matters is how little of it.
+
+**What the old harness cost was never the delegation.** It was the machinery around it: a worktree per
+agent, an `npm ci` in each, env files copied across, a router passing messages between processes, and a
+scheduler waking them up. None of that is here.
+
+- **One process per task.** A task is one headless `claude` session in the project's folder. The roles are
+  agent definitions on its command line (`--agents`), and the CLI's own delegation runs them. Flight Deck
+  starts one process and watches it.
+- **One working tree.** Specialists edit the same tree as the lead, which is told to give each one files of
+  its own. No worktrees, no per-agent branches — so the 2026-08-18 safety model stands untouched: the agent
+  never commits, pushes or switches branches; `git diff` is the audit log; the human commits.
+- **Nothing scheduled, nothing remote.** A task starts when a button is pressed.
+
+**A task's run belongs to the server**, which is the one structural difference from a chat. A chat's stream
+is its HTTP response, so closing the tab stops the agent — right for a conversation, wrong for something
+you start and leave. Tasks are started by `server/tasks.ts` and viewers attach and detach.
+
+**Which is why a task has an event log, against "store no message history".** That rule holds for chats
+because the CLI's transcript replays them whole. It does not replay a task: which specialist did what, what
+was denied, what each reported back arrive as stream events the transcript does not carry. The log is the
+translated `UiEvent`s, one per line, deleted with the task.
+
+**Permissions: an allow list, not a bypass.** A headless run cannot ask, so a task that must run tests
+needs its commands allowed up front. The choice was between allowing those and `bypassPermissions`. The
+project's check scripts are detected and allowed by prefix; everything else that executes is denied and
+surfaced as a blocker. A denied check is reported as not run — which is the honest outcome, and the lead is
+told to say so.
+
+**Verified by running it**, in a scratch repository, before any UI existed:
+
+- The delegation tool is `Agent` and specialists report through `system` records (`task_started`,
+  `task_progress`, `task_notification`), each carrying the launching call's `tool_use_id`.
+- On Windows the shell tool is `PowerShell`. An allow list written for `Bash` alone left `npm test` denied;
+  rules are now written for both.
+- A delegating run emits more than one `result`. Treating the first as the end would have marked every
+  delegated task finished while its specialist was still working.
+- The first detection pass allowed `test:watch` on a real project. A watcher never exits; it is excluded,
+  along with anything named like a deploy.
+
+**What it does not do.** The stage shown is inferred from the kind of work last observed, so it cannot tell
+reviewing from implementing. Two specialists are kept out of each other's files by instruction, not by
+isolation. And the deny rules match command text — the diff you review is still the control that matters.
+
+*Would change it if:* specialists regularly collide in one tree. That is the point at which isolation earns
+its overhead, and not before.

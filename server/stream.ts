@@ -113,12 +113,70 @@ export function translate(record: unknown): UiEvent[] {
         model: String(record.model ?? ''),
         cwd: String(record.cwd ?? ''),
         permissionMode: String(record.permissionMode ?? ''),
-        tools: Array.isArray(record.tools) ? record.tools.map(String) : []
+        tools: Array.isArray(record.tools) ? record.tools.map(String) : [],
+        mcpServers: Array.isArray(record.mcp_servers)
+          ? record.mcp_servers
+              .filter(isRecord)
+              .map((server) => ({ name: String(server.name ?? ''), status: String(server.status ?? '') }))
+          : []
+      }
+    ];
+  }
+
+  /*
+   * Specialists, as the CLI reports them. Shapes captured from a real delegated run on Claude Code 2.1.287:
+   * `task_started` when the lead's Agent call launches one, `task_progress` after each of its tool calls,
+   * `task_notification` when it finishes. All three carry the launching call's `tool_use_id`.
+   */
+  if (type === 'system' && record.subtype === 'task_started' && record.tool_use_id) {
+    return [
+      {
+        type: 'agent_start',
+        id: String(record.tool_use_id),
+        agentId: String(record.task_id ?? ''),
+        role: String(record.subagent_type ?? 'agent'),
+        description: String(record.description ?? ''),
+        prompt: String(record.prompt ?? '')
+      }
+    ];
+  }
+  if (type === 'system' && record.subtype === 'task_progress' && record.tool_use_id) {
+    const usage = isRecord(record.usage) ? record.usage : {};
+    return [
+      {
+        type: 'agent_progress',
+        id: String(record.tool_use_id),
+        description: String(record.description ?? ''),
+        toolUses: count(usage.tool_uses),
+        totalTokens: count(usage.total_tokens)
+      }
+    ];
+  }
+  if (type === 'system' && record.subtype === 'task_notification' && record.tool_use_id) {
+    return [
+      {
+        type: 'agent_end',
+        id: String(record.tool_use_id),
+        status: String(record.status ?? 'completed'),
+        summary: String(record.summary ?? '')
+      }
+    ];
+  }
+  if (type === 'system' && record.subtype === 'permission_denied') {
+    return [
+      {
+        type: 'denied',
+        toolName: String(record.tool_name ?? 'tool'),
+        message: String(record.message ?? ''),
+        agentId: record.agent_id ? String(record.agent_id) : null
       }
     ];
   }
 
   if (type === 'stream_event' && isRecord(record.event)) {
+    // A specialist's partial output is not the lead's prose. Its tool calls arrive as completed messages below,
+    // tagged with the parent call; letting its text deltas through here would splice them into the lead's reply.
+    if (record.parent_tool_use_id) return [];
     const ev = record.event;
     if (ev.type === 'content_block_delta' && isRecord(ev.delta)) {
       if (ev.delta.type === 'text_delta') {

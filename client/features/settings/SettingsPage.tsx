@@ -12,6 +12,7 @@ import {
   Settings as SettingsIcon,
   Sparkles,
   SquareTerminal,
+  Workflow,
   X
 } from 'lucide-react';
 import type { Settings } from '@shared/types';
@@ -27,6 +28,7 @@ import { PrivacySection } from './sections/PrivacySection';
 import { ShortcutsSection } from './sections/ShortcutsSection';
 import { TerminalSection } from './sections/TerminalSection';
 import { UpdatesSection } from './sections/UpdatesSection';
+import { WorkflowSection } from './sections/WorkflowSection';
 
 interface SettingsPageProps {
   settings: Settings;
@@ -35,7 +37,7 @@ interface SettingsPageProps {
   onClose: () => void;
 }
 
-type SectionId = 'general' | 'git' | 'agent' | 'terminal' | 'shortcuts' | 'updates' | 'privacy';
+type SectionId = 'general' | 'git' | 'agent' | 'workflow' | 'terminal' | 'shortcuts' | 'updates' | 'privacy';
 
 interface Section {
   id: SectionId;
@@ -49,6 +51,7 @@ const SECTIONS: Section[] = [
   { id: 'general', label: 'General', icon: <SettingsIcon size={14} />, blurb: 'How Flight Deck looks and behaves while you work.' },
   { id: 'git', label: 'Git & Commit', icon: <GitBranch size={14} />, blurb: 'What happens when you commit, and who writes the message.' },
   { id: 'agent', label: 'AI Assistant', icon: <Sparkles size={14} />, blurb: 'Defaults for new chats and projects, and the limits on a run.' },
+  { id: 'workflow', label: 'Workflow', icon: <Workflow size={14} />, blurb: 'The Lead Engineer, the specialists it can delegate to, and the tools a headless run may use.' },
   { id: 'terminal', label: 'Terminal', icon: <SquareTerminal size={14} />, blurb: 'Which shell opens, and how it looks.' },
   { id: 'shortcuts', label: 'Shortcuts', icon: <Keyboard size={14} />, blurb: 'Every key this app listens for.' },
   { id: 'updates', label: 'Updates', icon: <CloudDownload size={14} />, blurb: 'Whether this copy is behind the repository it came from.' },
@@ -100,6 +103,7 @@ export function SettingsPage({ settings, onUpdate, onReset, onClose }: SettingsP
             {section === 'general' ? <GeneralSection settings={settings} onUpdate={onUpdate} /> : null}
             {section === 'git' ? <GitSection settings={settings} onUpdate={onUpdate} /> : null}
             {section === 'agent' ? <AgentSection settings={settings} onUpdate={onUpdate} /> : null}
+            {section === 'workflow' ? <WorkflowSection settings={settings} onUpdate={onUpdate} /> : null}
             {section === 'terminal' ? <TerminalSection settings={settings} onUpdate={onUpdate} /> : null}
             {section === 'shortcuts' ? <ShortcutsSection /> : null}
             {section === 'updates' ? <UpdatesSection settings={settings} onUpdate={onUpdate} /> : null}
