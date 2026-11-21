@@ -7,6 +7,7 @@ import { cn } from '@/lib/cn';
 import { detailOf, messageOf } from '@/lib/http';
 import { branchApi, mergeApi } from '@/features/changes/api';
 import { projectsApi } from '@/features/projects/api';
+import { useWorkspace } from '@/store/workspace';
 
 /**
  * Spellings of the integration branch, in the order they are tried.
@@ -19,6 +20,8 @@ const LIKELY = ['origin/dev', 'origin/develop', 'origin/development'];
 
 interface FastForwardButtonProps {
   project: Project;
+  /** Bumped whenever the repository may have moved — a run finishing, a commit, the shell going quiet. */
+  revision: number;
   /** Called after a successful fast-forward so the Changes panel picks up the new position. */
   onMerged: () => void;
 }
@@ -32,7 +35,7 @@ interface FastForwardButtonProps {
  *
  * `--ff-only`, and it never pushes.
  */
-export function FastForwardButton({ project, onMerged }: FastForwardButtonProps) {
+export function FastForwardButton({ project, revision, onMerged }: FastForwardButtonProps) {
   const [branches, setBranches] = useState<BranchList | null>(null);
   const [confirm, setConfirm] = useState<ConfirmRequest | null>(null);
   const [running, setRunning] = useState(false);
@@ -47,9 +50,19 @@ export function FastForwardButton({ project, onMerged }: FastForwardButtonProps)
     }
   }, [project.id]);
 
+  /*
+   * Re-read when the branch may have changed, not only on mount.
+   *
+   * REPORTED FROM USE: this button is trunk-only, but the branch list was read once — so after switching to dev it
+   * went on offering `origin/dev`, and after switching back to main it stayed missing, until the terminal was
+   * closed and reopened. Two signals cover it: `revision` follows anything typed in the shell, and `switchSeq`
+   * follows a switch made from the Changes panel, which reports its result there and bumps nothing here.
+   */
+  const switchSeq = useWorkspace((s) => (s.branchSwitch?.projectId === project.id ? s.branchSwitch.seq : 0));
+
   useEffect(() => {
     void load();
-  }, [load]);
+  }, [load, revision, switchSeq]);
 
   useEffect(() => setChosen(project.fastForwardRef), [project.fastForwardRef]);
 

@@ -214,6 +214,7 @@ export function AppShell() {
         shellId={settings.terminalShell}
         fontSize={settings.terminalFontSize}
         cursorBlink={settings.terminalCursorBlink}
+        gitRevision={gitRevision}
         onShellChange={(id) => void updateSettings({ terminalShell: id })}
         onCommitted={bumpGit}
         onShellActivity={onShellActivity}

@@ -26,6 +26,8 @@ interface TerminalDrawerProps {
   shellId: string;
   fontSize: number;
   cursorBlink: boolean;
+  /** The app's git revision counter, so header controls that depend on the branch follow it. */
+  gitRevision: number;
   onShellChange: (id: string) => void;
   /** Called after the build trigger commits or a fast-forward lands — an immediate refresh, since the action came
    *  from this header and its result is known. */
@@ -56,6 +58,7 @@ export function TerminalDrawer({
   shellId,
   fontSize,
   cursorBlink,
+  gitRevision,
   onShellChange,
   onCommitted,
   onShellActivity,
@@ -120,7 +123,7 @@ export function TerminalDrawer({
         ) : null}
 
         <span className="ml-auto flex shrink-0 items-center gap-1.5">
-          {variant === 'workspace' ? <FastForwardButton project={project} onMerged={onCommitted} /> : null}
+          {variant === 'workspace' ? <FastForwardButton project={project} revision={gitRevision} onMerged={onCommitted} /> : null}
         </span>
 
         <span className="flex shrink-0 items-center gap-0.5">
