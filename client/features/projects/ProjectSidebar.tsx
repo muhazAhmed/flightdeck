@@ -13,7 +13,8 @@ import {
   LayoutGrid,
   GitPullRequest,
   SquareTerminal,
-  Trash2
+  Trash2,
+  Workflow
 } from 'lucide-react';
 import type { Chat, Project, UserInfo } from '@shared/types';
 import { ConfirmDialog, type ConfirmRequest } from '@/shared/ui/ConfirmDialog';
@@ -63,11 +64,23 @@ export function ProjectSidebar({
   const toggleView = useWorkspace((s) => s.toggleView);
   const setView = useWorkspace((s) => s.setView);
 
+  /**
+   * Picking a project from the list leaves Workflow.
+   *
+   * Without this the click selects a project behind a page that hides it, which reads as the click doing nothing.
+   * Other whole-pane views are left alone: on the PR page, picking a project changes what that page shows.
+   */
+  const openProject = (id: string) => {
+    selectProject(id);
+    if (view === 'workflow') setView('workspace');
+  };
+
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   // Raised by a chat row, rendered once at the bottom of this component: a dialog per row would mount one
   // per chat, and the row unmounts the moment the chat is gone.
   const [confirm, setConfirm] = useState<ConfirmRequest | null>(null);
   const [query, setQuery] = useState('');
+  const [projectsOpen, setProjectsOpen] = useState(true);
 
   // Opening a project should reveal its chats without a second click.
   useEffect(() => {
@@ -95,17 +108,23 @@ export function ProjectSidebar({
         >
           <img src="/logo-64.png" alt="Flight Deck" width={22} height={22} className="size-[22px] rounded" />
         </button>
+        <IconButton
+          label="Workflow"
+          className={cn('size-9', view === 'workflow' && 'bg-accent-subtle text-accent-bright')}
+          icon={<Workflow size={16} />}
+          onClick={() => setView('workflow')}
+        />
         {projects.map((project) => {
           const running = chats.some((c) => c.projectId === project.id && runningChatIds.includes(c.id));
           return (
             <button
               key={project.id}
               title={project.name}
-              onClick={() => selectProject(project.id)}
+              onClick={() => openProject(project.id)}
               className={cn(
                 'relative flex size-9 shrink-0 items-center justify-center rounded-md font-medium uppercase',
                 'transition-colors duration-(--duration-fast)',
-                project.id === selectedProjectId
+                project.id === selectedProjectId && view !== 'workflow'
                   ? 'bg-accent-subtle text-accent-bright'
                   : 'text-text-secondary hover:bg-surface-2'
               )}
@@ -175,7 +194,11 @@ export function ProjectSidebar({
             value={query}
             placeholder="Search projects…"
             spellCheck={false}
-            onChange={(event) => setQuery(event.target.value)}
+            onChange={(event) => {
+              setQuery(event.target.value);
+              // A search into a folded list would look like it found nothing.
+              setProjectsOpen(true);
+            }}
             className="h-8 min-w-0 flex-1 bg-transparent text-[13px] placeholder:text-text-muted focus:outline-none"
           />
           <button
@@ -188,13 +211,38 @@ export function ProjectSidebar({
         </div>
       </div>
 
+      {/* Workflow first, then the projects, then Settings — the order the sidebar is read in. */}
+      <div className="px-2 pb-2">
+        <NavRow
+          icon={<Workflow size={14} />}
+          label="Workflow"
+          active={view === 'workflow'}
+          onClick={() => setView('workflow')}
+        />
+      </div>
+
       <div className="flex items-center justify-between px-3 pb-1">
-        <span className="text-[12px] font-medium tracking-wide text-text-muted uppercase">Projects</span>
+        {/* The heading is the toggle: with Workflow above it, the project list is one section among several and
+            should fold away like one. Add stays outside the button so it works either way. */}
+        <button
+          onClick={() => setProjectsOpen((open) => !open)}
+          aria-expanded={projectsOpen}
+          title={projectsOpen ? 'Collapse projects' : 'Expand projects'}
+          className="flex min-w-0 items-center gap-1 text-[12px] font-medium tracking-wide text-text-muted uppercase hover:text-text-primary"
+        >
+          <ChevronRight
+            size={12}
+            className={cn('transition-transform duration-(--duration-fast)', projectsOpen && 'rotate-90')}
+          />
+          <span>Projects</span>
+          {projectsOpen ? null : <span className="tabular normal-case">({projects.length})</span>}
+        </button>
         <IconButton label="Add project" icon={<Plus size={14} />} onClick={onAddProject} />
       </div>
 
+      {/* Kept mounted when folded, empty, so it still takes the space that pins Settings and the tools to the bottom. */}
       <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2">
-        {loading ? (
+        {!projectsOpen ? null : loading ? (
           <div className="flex flex-col gap-2 px-1">
             <Skeleton className="h-11" />
             <Skeleton className="h-11" />
@@ -210,7 +258,8 @@ export function ProjectSidebar({
           visible.map((project) => {
             const projectChats = chats.filter((c) => c.projectId === project.id);
             const isOpen = expanded.has(project.id);
-            const isSelected = project.id === selectedProjectId;
+            // While Workflow is showing, no project is the thing on screen, so none is marked.
+            const isSelected = project.id === selectedProjectId && view !== 'workflow';
             const running = projectChats.some((c) => runningChatIds.includes(c.id));
 
             return (
@@ -245,7 +294,7 @@ export function ProjectSidebar({
                   {/* Two lines: the name you think in, and the path that disambiguates two
                       repos with the same name in different parents. */}
                   <button
-                    onClick={() => selectProject(project.id)}
+                    onClick={() => openProject(project.id)}
                     className="flex min-w-0 flex-1 items-center gap-2 text-left"
                   >
                     <Folder size={14} className={cn('shrink-0', isSelected ? 'text-accent-bright' : 'text-text-muted')} />
@@ -301,6 +350,7 @@ export function ProjectSidebar({
                           onSelect={() => {
                             if (project.id !== selectedProjectId) selectProject(project.id);
                             selectChat(chat.id);
+                            if (view === 'workflow') setView('workspace');
                           }}
                           subChats={chats.filter((c) => c.parentChatId === chat.id).length}
                           onDeleted={onChatsChanged}
@@ -316,10 +366,20 @@ export function ProjectSidebar({
         )}
       </div>
 
+      {/* The third entry of the sidebar's own list. The profile row below opens the same page; having both is
+          deliberate — this one is where you look for it, that one is where it has always been. */}
+      <div className="border-t border-border-subtle px-2 py-2">
+        <NavRow
+          icon={<Settings size={14} />}
+          label="Settings"
+          title="Settings (Ctrl+,)"
+          active={false}
+          onClick={() => setView('settings')}
+        />
+      </div>
+
       {/*
-        The four tools, one row.
-        Settings is deliberately absent — the profile row below opens it, and a second entry point for the same
-        destination is clutter. Shortcuts live in the tooltips: at a third of this width a chip beside the label
+        The four tools, one row. Shortcuts live in the tooltips: at a third of this width a chip beside the label
         truncates to nothing useful.
       */}
       <div className="mx-2 mb-1 grid grid-cols-4 gap-1.5">
@@ -359,6 +419,38 @@ export function ProjectSidebar({
 
       <ConfirmDialog request={confirm} onClose={() => setConfirm(null)} />
     </nav>
+  );
+}
+
+/** A full-width sidebar destination: Workflow and Settings. Same selected treatment as a project row. */
+function NavRow({
+  icon,
+  label,
+  title,
+  active,
+  onClick
+}: {
+  icon: ReactNode;
+  label: string;
+  title?: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      title={title}
+      className={cn(
+        'flex w-full items-center gap-2 rounded-md border-l-2 px-2 py-1.5 text-left text-[13.5px] font-medium',
+        'transition-colors duration-(--duration-fast)',
+        active
+          ? 'border-accent-bright bg-accent-subtle text-text-primary'
+          : 'border-transparent text-text-secondary hover:bg-surface-2 hover:text-text-primary'
+      )}
+    >
+      <span className={cn('shrink-0', active ? 'text-accent-bright' : 'text-text-muted')}>{icon}</span>
+      <span className="min-w-0 flex-1 truncate">{label}</span>
+    </button>
   );
 }
 

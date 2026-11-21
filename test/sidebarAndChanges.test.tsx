@@ -166,11 +166,23 @@ test('the four tools sit on one row', () => {
   }
 });
 
-test('settings has exactly one entry point in the sidebar', () => {
+test('the sidebar reads Workflow, then Projects, then Settings', () => {
   const html = renderSidebar([project], null);
-  // The profile row opens settings. A tile for the same destination was redundant and was removed.
-  assert.ok(!/>Settings</.test(html), 'no Settings tile');
-  assert.equal((html.match(/title="Settings \(Ctrl\+,\)"/g) ?? []).length, 1, 'one settings affordance');
+  const at = (label: string) => html.indexOf(`>${label}<`);
+  assert.ok(at('Workflow') >= 0 && at('Projects') >= 0 && at('Settings') >= 0, 'all three are present');
+  assert.ok(at('Workflow') < at('Projects') && at('Projects') < at('Settings'), 'in that order');
+});
+
+test('the Projects heading is a toggle for the list', () => {
+  const html = renderSidebar([project], null);
+  assert.match(html, /aria-expanded="true"[^>]*title="Collapse projects"/);
+});
+
+test('settings is reachable from its own row and from the profile row', () => {
+  const html = renderSidebar([project], null);
+  // Two on purpose, by request: the list entry is where you look for it, the profile row is where it has always
+  // been. This used to assert exactly one; a third would still be clutter.
+  assert.equal((html.match(/title="Settings \(Ctrl\+,\)"/g) ?? []).length, 2, 'two settings affordances');
 });
 
 test('a tool tile carries its shortcut in the tooltip, not as a chip', () => {

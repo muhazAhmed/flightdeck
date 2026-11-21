@@ -11,6 +11,7 @@ import { CommandPalette } from '@/features/command-palette/CommandPalette';
 import { DeckPage } from '@/features/deck/DeckPage';
 import { PrPage } from '@/features/pr/PrPage';
 import { UsagePage } from '@/features/usage/UsagePage';
+import { WorkflowPage } from '@/features/workflow/WorkflowPage';
 import { AddProjectDialog } from '@/features/projects/AddProjectDialog';
 import { ProjectSidebar } from '@/features/projects/ProjectSidebar';
 import { useProjects } from '@/features/projects/useProjects';
@@ -312,6 +313,10 @@ export function AppShell() {
                 onAddProject={() => setAddOpen(true)}
                 onClose={() => setView('workspace')}
               />
+            </Panel>
+          ) : view === 'workflow' ? (
+            <Panel id="workflow" minSize="30">
+              <WorkflowPage />
             </Panel>
           ) : view === 'pr' ? (
             <Panel id="pr" minSize="30">
