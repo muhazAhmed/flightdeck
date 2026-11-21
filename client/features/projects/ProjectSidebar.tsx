@@ -240,8 +240,10 @@ export function ProjectSidebar({
         <IconButton label="Add project" icon={<Plus size={14} />} onClick={onAddProject} />
       </div>
 
-      {/* Kept mounted when folded, empty, so it still takes the space that pins Settings and the tools to the bottom. */}
-      <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2">
+      {/* Sized by its content and allowed to shrink, not stretched: Settings is the next entry of the same list, so
+          it follows the projects directly — and right under the heading when they are folded. A long list scrolls
+          here instead of pushing anything off the bottom. */}
+      <div className="min-h-0 shrink overflow-y-auto px-2 pb-2">
         {!projectsOpen ? null : loading ? (
           <div className="flex flex-col gap-2 px-1">
             <Skeleton className="h-11" />
@@ -368,7 +370,7 @@ export function ProjectSidebar({
 
       {/* The third entry of the sidebar's own list. The profile row below opens the same page; having both is
           deliberate — this one is where you look for it, that one is where it has always been. */}
-      <div className="border-t border-border-subtle px-2 py-2">
+      <div className="shrink-0 px-2 pb-2">
         <NavRow
           icon={<Settings size={14} />}
           label="Settings"
@@ -377,6 +379,9 @@ export function ProjectSidebar({
           onClick={() => setView('settings')}
         />
       </div>
+
+      {/* The slack goes here, so the tools and the profile row stay pinned to the bottom. */}
+      <div className="min-h-0 flex-1" />
 
       {/*
         The four tools, one row. Shortcuts live in the tooltips: at a third of this width a chip beside the label
