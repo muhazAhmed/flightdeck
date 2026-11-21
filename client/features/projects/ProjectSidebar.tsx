@@ -5,6 +5,7 @@ import {
   ChevronsLeft,
   Download,
   Folder,
+  Folders,
   MessageSquarePlus,
   Plus,
   Search,
@@ -17,6 +18,7 @@ import {
   Workflow
 } from 'lucide-react';
 import type { Chat, Project, UserInfo } from '@shared/types';
+import { Button } from '@/shared/ui/Button';
 import { ConfirmDialog, type ConfirmRequest } from '@/shared/ui/ConfirmDialog';
 import { IconButton } from '@/shared/ui/IconButton';
 import { Skeleton } from '@/shared/ui/Skeleton';
@@ -211,8 +213,9 @@ export function ProjectSidebar({
         </div>
       </div>
 
-      {/* Workflow first, then the projects, then Settings — the order the sidebar is read in. */}
-      <div className="px-2 pb-2">
+      {/* Workflow, Projects, Settings: three items of one list, drawn the same. Projects differs only in having
+          sub-items — hence the chevron that folds them and the add button. */}
+      <div className="px-2 pb-0.5">
         <NavRow
           icon={<Workflow size={14} />}
           label="Workflow"
@@ -221,29 +224,28 @@ export function ProjectSidebar({
         />
       </div>
 
-      <div className="flex items-center justify-between px-3 pb-1">
-        {/* The heading is the toggle: with Workflow above it, the project list is one section among several and
-            should fold away like one. Add stays outside the button so it works either way. */}
-        <button
-          onClick={() => setProjectsOpen((open) => !open)}
-          aria-expanded={projectsOpen}
+      <div className="px-2 pb-0.5">
+        <NavRow
+          icon={<Folders size={14} />}
+          label="Projects"
           title={projectsOpen ? 'Collapse projects' : 'Expand projects'}
-          className="flex min-w-0 items-center gap-1 text-[12px] font-medium tracking-wide text-text-muted uppercase hover:text-text-primary"
-        >
-          <ChevronRight
-            size={12}
-            className={cn('transition-transform duration-(--duration-fast)', projectsOpen && 'rotate-90')}
-          />
-          <span>Projects</span>
-          {projectsOpen ? null : <span className="tabular normal-case">({projects.length})</span>}
-        </button>
-        <IconButton label="Add project" icon={<Plus size={14} />} onClick={onAddProject} />
+          active={false}
+          expanded={projectsOpen}
+          onClick={() => setProjectsOpen((open) => !open)}
+          action={
+            // Labelled, not a bare plus: beside a chevron an unlabelled icon reads as part of the fold control.
+            <Button size="sm" variant="secondary" className="shrink-0" onClick={onAddProject}>
+              <Plus size={12} />
+              Add project
+            </Button>
+          }
+        />
       </div>
 
-      {/* Sized by its content and allowed to shrink, not stretched: Settings is the next entry of the same list, so
-          it follows the projects directly — and right under the heading when they are folded. A long list scrolls
-          here instead of pushing anything off the bottom. */}
-      <div className="min-h-0 shrink overflow-y-auto px-2 pb-2">
+      {/* Sized by its content and allowed to shrink, not stretched: Settings is the next item of the same list, so
+          it follows the projects directly — and right under Projects when they are folded. A long list scrolls
+          here instead of pushing anything off the bottom. Indented, because these are Projects' sub-items. */}
+      <div className="min-h-0 shrink overflow-y-auto pr-2 pl-5">
         {!projectsOpen ? null : loading ? (
           <div className="flex flex-col gap-2 px-1">
             <Skeleton className="h-11" />
@@ -427,35 +429,60 @@ export function ProjectSidebar({
   );
 }
 
-/** A full-width sidebar destination: Workflow and Settings. Same selected treatment as a project row. */
+/**
+ * One item of the sidebar's list: Workflow, Projects, Settings.
+ *
+ * One component so the three cannot drift apart visually. `expanded` and `action` are what an item with sub-items
+ * adds — a chevron showing whether they are folded, and a control that sits beside the row rather than inside the
+ * button, since a button inside a button is invalid markup and swallows the outer click.
+ */
 function NavRow({
   icon,
   label,
   title,
   active,
+  expanded,
+  action,
   onClick
 }: {
   icon: ReactNode;
   label: string;
   title?: string;
   active: boolean;
+  expanded?: boolean;
+  action?: ReactNode;
   onClick: () => void;
 }) {
   return (
-    <button
-      onClick={onClick}
-      title={title}
+    <div
       className={cn(
-        'flex w-full items-center gap-2 rounded-md border-l-2 px-2 py-1.5 text-left text-[13.5px] font-medium',
+        'flex items-center rounded-md border-l-2 pr-1',
         'transition-colors duration-(--duration-fast)',
         active
           ? 'border-accent-bright bg-accent-subtle text-text-primary'
           : 'border-transparent text-text-secondary hover:bg-surface-2 hover:text-text-primary'
       )}
     >
-      <span className={cn('shrink-0', active ? 'text-accent-bright' : 'text-text-muted')}>{icon}</span>
-      <span className="min-w-0 flex-1 truncate">{label}</span>
-    </button>
+      <button
+        onClick={onClick}
+        title={title}
+        aria-expanded={expanded}
+        className="flex min-w-0 flex-1 items-center gap-2 px-2 py-1.5 text-left text-[13.5px] font-medium"
+      >
+        <span className={cn('shrink-0', active ? 'text-accent-bright' : 'text-text-muted')}>{icon}</span>
+        <span className="min-w-0 flex-1 truncate">{label}</span>
+        {expanded === undefined ? null : (
+          <ChevronRight
+            size={13}
+            className={cn(
+              'shrink-0 text-text-muted transition-transform duration-(--duration-fast)',
+              expanded && 'rotate-90'
+            )}
+          />
+        )}
+      </button>
+      {action}
+    </div>
   );
 }
 

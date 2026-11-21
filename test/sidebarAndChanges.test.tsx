@@ -175,7 +175,7 @@ test('the sidebar reads Workflow, then Projects, then Settings', () => {
 
 test('the Projects heading is a toggle for the list', () => {
   const html = renderSidebar([project], null);
-  assert.match(html, /aria-expanded="true"[^>]*title="Collapse projects"/);
+  assert.match(html, /title="Collapse projects"[^>]*aria-expanded="true"/);
 });
 
 test('settings is reachable from its own row and from the profile row', () => {
