@@ -5,6 +5,7 @@ import { WebglAddon } from '@xterm/addon-webgl';
 import type { TerminalServerMessage } from '@shared/types';
 import { useWorkspace } from '@/store/workspace';
 import { detectDeviceCode, type DeviceCode } from './deviceCode';
+import { isStalePrompt } from './stalePrompt';
 
 export interface TerminalStatus {
   state: 'connecting' | 'ready' | 'exited' | 'error';
@@ -76,6 +77,7 @@ export function useTerminal(
 
   const pendingCommand = useWorkspace((s) => s.pendingCommand);
   const clearPendingCommand = useWorkspace((s) => s.clearPendingCommand);
+  const branchSwitch = useWorkspace((s) => s.branchSwitch);
 
   /**
    * A device-code login waiting to be completed, when the shell has printed one.
@@ -335,6 +337,36 @@ export function useTerminal(
     clearPendingCommand();
     terminalRef.current?.focus();
   }, [pendingCommand, status.state, clearPendingCommand]);
+
+  /**
+   * Redraw the prompt after a branch switch made from the Changes panel.
+   *
+   * REPORTED FROM USE: switching there left the terminal's prompt reading the old branch, which looks like the
+   * switch did not happen. Pressing Enter is the only thing that makes a shell print a new prompt, so that is
+   * what this does — but only when `isStalePrompt` says it is an empty prompt showing the old name. A running
+   * dev server or a half-typed command is left alone.
+   *
+   * `seenSwitch` starts at whatever was in the store at mount: a switch made before this terminal opened is
+   * not replayed into it.
+   */
+  const seenSwitch = useRef(branchSwitch?.seq ?? 0);
+  useEffect(() => {
+    if (!branchSwitch || branchSwitch.seq === seenSwitch.current || status.state !== 'ready') return;
+    seenSwitch.current = branchSwitch.seq;
+    if (branchSwitch.projectId !== projectId) return;
+
+    const terminal = terminalRef.current;
+    const socket = socketRef.current;
+    if (!terminal || socket?.readyState !== WebSocket.OPEN) return;
+
+    const buffer = terminal.buffer.active;
+    const row = buffer.baseY + buffer.cursorY;
+    const cursorLine = buffer.getLine(row)?.translateToString(true) ?? '';
+    const lineAbove = buffer.getLine(row - 1)?.translateToString(true) ?? '';
+    if (!isStalePrompt(lineAbove, cursorLine, buffer.cursorX, branchSwitch.from)) return;
+
+    socket.send(JSON.stringify({ type: 'input', data: ENTER }));
+  }, [branchSwitch, status.state, projectId]);
 
   /**
    * Kill this project's shell.

@@ -9,6 +9,7 @@ import { ConfirmDialog, type ConfirmRequest } from '@/shared/ui/ConfirmDialog';
 import { IconButton } from '@/shared/ui/IconButton';
 import { cn } from '@/lib/cn';
 import { detailOf, messageOf, RequestError } from '@/lib/http';
+import { useWorkspace } from '@/store/workspace';
 import { branchApi, gitApi } from './api';
 
 interface BranchMenuProps {
@@ -36,6 +37,7 @@ export function BranchMenu({ projectId, status, revision, onStatus }: BranchMenu
   const [creating, setCreating] = useState(false);
   const [confirm, setConfirm] = useState<ConfirmRequest | null>(null);
   const [query, setQuery] = useState('');
+  const noteBranchSwitch = useWorkspace((s) => s.noteBranchSwitch);
 
   /**
    * Fetch after landing on a branch.
@@ -88,10 +90,13 @@ export function BranchMenu({ projectId, status, revision, onStatus }: BranchMenu
 
   async function checkout(branch: string) {
     setBusy(true);
+    const from = current;
     try {
       const result = await branchApi.checkout(projectId, branch);
       setBranches(result.branches);
       if (result.status) onStatus(result.status);
+      // An open terminal is still showing the old branch in its prompt; let it redraw.
+      if (from) noteBranchSwitch(projectId, from);
       toast.success(`Switched to ${branch}`, { description: result.summary });
       setBusy(false);
       await fetchInBackground();
@@ -105,10 +110,13 @@ export function BranchMenu({ projectId, status, revision, onStatus }: BranchMenu
 
   async function create(name: string, from?: string) {
     setBusy(true);
+    const previous = current;
     try {
       const result = await branchApi.create(projectId, name, from);
       setBranches(result.branches);
       if (result.status) onStatus(result.status);
+      // Creating a branch also lands on it, so the prompt is stale in the same way.
+      if (previous) noteBranchSwitch(projectId, previous);
       toast.success(result.summary);
       return true;
     } catch (err) {

@@ -31,6 +31,13 @@ interface WorkspaceState {
    * written to a socket that does not exist yet and vanish.
    */
   pendingCommand: string | null;
+  /**
+   * The last branch switch made from the UI, so that project's terminal can redraw a prompt still naming `from`.
+   *
+   * `seq` is what makes two switches distinguishable; an open terminal reacts to a change and ignores whatever
+   * was here when it mounted.
+   */
+  branchSwitch: { projectId: string; from: string; seq: number } | null;
 
   selectProject: (projectId: string | null) => void;
   selectChat: (chatId: string | null) => void;
@@ -45,6 +52,7 @@ interface WorkspaceState {
   /** Open the terminal and type `command` into it, exactly as if it had been typed by hand. */
   runInTerminal: (command: string) => void;
   clearPendingCommand: () => void;
+  noteBranchSwitch: (projectId: string, from: string) => void;
 }
 
 export const useWorkspace = create<WorkspaceState>((set) => ({
@@ -56,6 +64,7 @@ export const useWorkspace = create<WorkspaceState>((set) => ({
   paletteOpen: false,
   terminalOpen: false,
   pendingCommand: null,
+  branchSwitch: null,
 
   // Changing project always clears the chat: a chat id from another project would point
   // the transcript at one repo and the Changes panel at a different one.
@@ -69,5 +78,7 @@ export const useWorkspace = create<WorkspaceState>((set) => ({
   toggleTerminal: () => set((s) => ({ terminalOpen: !s.terminalOpen })),
   setTerminalOpen: (terminalOpen) => set({ terminalOpen }),
   runInTerminal: (command) => set({ terminalOpen: true, pendingCommand: command }),
-  clearPendingCommand: () => set({ pendingCommand: null })
+  clearPendingCommand: () => set({ pendingCommand: null }),
+  noteBranchSwitch: (projectId, from) =>
+    set((s) => ({ branchSwitch: { projectId, from, seq: (s.branchSwitch?.seq ?? 0) + 1 } }))
 }));
